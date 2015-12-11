@@ -6,3 +6,11 @@ Although not limited to hosting applications developed with [Symphony Framework]
 Developing programs for Sonata can be accelerated by using our [NuGet Packages](http://www.nuget.org/packages?q=Synergy.Sonata).
 
 Sonata is developed using [Synergy .NET](http://www.synergyde.com/products/development_tools/visual_studio.aspx), so you must have a configured and licensed Synergy .NET environment in place in order to build or run this product.
+
+![Screen shot 1](https://github.com/Synergex/Sonata/wiki/images/screenshot1.png)
+
+![Screen shot 1](https://github.com/Synergex/Sonata/wiki/images/screenshot2.png)
+
+![Screen shot 1](https://github.com/Synergex/Sonata/wiki/images/screenshot3.png)
+
+![Screen shot 1](https://github.com/Synergex/Sonata/wiki/images/screenshot4.png)
