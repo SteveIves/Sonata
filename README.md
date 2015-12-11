@@ -1,4 +1,4 @@
-# Sonata
+
 Sonata is an application shell designed to allow Synergy .NET developers to deploy their WPF applications to users in a consistent and consistent way.
 
 Although not limited to hosting applications developed with [Symphony Framework](http://symphonyframework.codeplex.com), a primary use case for Sonata is to use it in conjunction with WPF applications developed using Symphony Framework.
