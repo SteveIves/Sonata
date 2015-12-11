@@ -1,0 +1,210 @@
+;;*****************************************************************************
+;;
+;; Title:       CheckForUpdateVM.dbl
+;;
+;; Type:        Class (ViewModel)
+;;
+;; Description: ViewModel for CheckForUpdateView
+;;
+;; Date:        5th March 2014
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;              http://www.synergex.com
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2014, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+
+import System
+import System.Diagnostics
+import System.Reflection
+import System.ServiceModel.Syndication
+import System.Windows.Input
+import System.Xml
+import Sonata.Interface
+import Sonata.View
+
+namespace Sonata.ViewModel
+
+	public class CheckForUpdateVM extends ViewModelBase
+		
+		private mView, @CheckForUpdateView
+		private mUpdateEnabled, boolean, true
+		
+.region "Constructor"
+		
+		public method CheckForUpdateVM
+			required in aView, @CheckForUpdateView
+			endparams
+		proc
+			mView = aView
+			ProgramVersion = String.Format("{0}",Assembly.GetExecutingAssembly().GetName().Version.ToString())
+			LatestVersion = String.Format("{0}",getLatestVersion())
+			UpdateMessage = getUpdateMessage()
+			mView.DataContext = this
+		endmethod
+		
+		private method getLatestVersion, String
+			endparams
+		proc
+			try
+			begin
+				;;Get an Atom formatter
+				data formatter, @Atom10FeedFormatter, new Atom10FeedFormatter()				
+				;;Read the Atom feed
+				disposable data reader, @XmlReader, XmlReader.Create("https://sonata.svn.codeplex.com/svn/CurrentRelease.xml")
+				formatter.ReadFrom(reader)
+				mreturn formatter.Feed.Title.Text
+			end
+			catch (e, @Exception)
+			begin
+				mreturn "Unknown"
+			end
+			endtry
+		endmethod
+
+		private method getUpdateMessage, String
+			endparams
+		proc
+			if (LatestVersion=="Unknown") then
+			begin
+				UpdateMessageColor = "Red"
+				mreturn "Failed to retrieve latest version information."
+			end
+			else
+			begin
+				if (LatestVersion > ProgramVersion) then
+				begin
+					UpdateMessageColor = "Red"
+					mreturn "An updated version of Sonata is available!"
+				end
+				else if (LatestVersion < ProgramVersion) then
+				begin
+					UpdateMessageColor = "Orange"
+					mreturn "You are running a pre-release version of Sonata."
+				end
+				else
+				begin
+					UpdateMessageColor = "Green"
+					mUpdateEnabled = false
+					mreturn "You are running the latest version of Sonata."
+				end
+			end
+		endmethod
+
+.endregion
+		
+.region "Bindable properties"
+
+		public property ProgramVersion, String
+			method get
+			endmethod
+			method set
+			endmethod
+		endproperty
+
+		public property LatestVersion, String
+			method get
+			endmethod
+			method set
+			endmethod
+		endproperty
+
+		public property UpdateMessage, String
+			method get
+			endmethod
+			method set
+			endmethod
+		endproperty
+		
+		public property UpdateMessageColor, String
+			method get
+			endmethod
+			method set
+			endmethod
+		endproperty
+		
+		public property BackgroundColor, String
+			method get
+			proc
+				mreturn Properties.Settings.Default.BackgroundColor
+			endmethod
+		endproperty
+		
+.endregion
+		
+.region "CloseCommand"
+		
+		private mCloseCommand, @ICommand
+		
+		public property CloseCommand, @ICommand
+			method get
+			proc
+				if (mCloseCommand==^null)
+				begin
+					lambda doCloseCommand(param)
+					begin
+						mView.Close()
+					end
+					mCloseCommand = new RelayCommand(doCloseCommand)
+				end
+				mreturn mCloseCommand
+			endmethod
+		endproperty
+		
+.endregion
+	
+.region "DownloadCommand"
+		
+		private mDownloadCommand, @ICommand
+		
+		public property DownloadCommand, @ICommand
+			method get
+			proc
+				if (mDownloadCommand==^null)
+				begin
+					lambda doDownloadCommand(param)
+					begin
+						Process.Start("http://sonata.codeplex.com/releases")
+						mView.Close()
+					end
+					lambda canDoDownloadCommand(param)
+					begin
+						mreturn mUpdateEnabled
+					end
+					mDownloadCommand = new RelayCommand(doDownloadCommand,canDoDownloadCommand)
+				end
+				mreturn mDownloadCommand
+			endmethod
+		endproperty
+		
+.endregion
+		
+	endclass
+
+endnamespace

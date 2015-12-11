@@ -1,0 +1,206 @@
+;;*****************************************************************************
+;;
+;; Title:       StopWatchViewModel.dbl
+;;
+;; Type:        Class
+;;
+;; Description: Main ViewModel for StopWatch example program
+;;
+;; Date:        19th February 2014
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;              http://www.synergex.com
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2014, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+
+import System
+import System.ComponentModel
+import System.Windows.Input
+import Sonata.Interface
+import Sonata.Interface.Tools
+import SonataExamplePrograms.Model
+
+namespace SonataExamplePrograms.ViewModel
+
+	public class StopWatchViewModel extends ViewModelBase implements IMenuViewModel, IMenuSuspend
+			
+		private mTicker, @StopWatchTicker
+		
+		public method StopWatchViewModel
+			required in aView, @IMenuView
+			endparams
+			parent(aView)
+		proc
+
+		endmethod
+		
+.region "Public properties"
+		
+		public property ElapsedTime, String
+			method get
+			proc
+				mreturn String.Format("{0:D2}:{1:D2}", mTicker.ElapsedTime.Minutes, mTicker.ElapsedTime.Seconds)
+			endmethod
+		endproperty
+
+		;;Raises the PropertyChanged event for the above property
+		private method mTicker_ValueChanged, void
+			sender		,@Object 
+			e			,@EventArgs 
+			endparams
+		proc
+			NotifyPropertyChanged("ElapsedTime")
+			CommandManager.InvalidateRequerySuggested()
+		endmethod
+
+.endregion
+		
+.region "StartCommand"
+
+		private mStartCommand, @ICommand
+
+		public property StartCommand, @ICommand
+			method get
+			proc
+				if (mStartCommand == ^null)
+				begin
+					lambda doStart(param)
+					begin
+						mTicker.Start()
+					end
+					lambda canStart(param)
+					begin
+						mreturn !mTicker.IsStarted
+					end					
+					mStartCommand = new RelayCommand(doStart,canStart)
+				end
+				mreturn mStartCommand
+			endmethod
+		endproperty
+
+.endregion
+		
+.region "StopCommand"
+
+		private mStopCommand, @ICommand
+
+		public property StopCommand, @ICommand
+			method get
+			proc
+				if (mStopCommand == ^null)
+				begin
+					lambda doStop(param)
+					begin
+						mTicker.Stop()
+					end
+					lambda canStop(param)
+					begin
+						mreturn mTicker.IsStarted
+					end
+					mStopCommand = new RelayCommand(doStop,canStop)
+				end
+				mreturn mStopCommand
+			endmethod
+		endproperty
+		
+.endregion
+		
+.region "ClearCommand"
+
+		private mClearCommand, @ICommand
+
+		public property ClearCommand, @ICommand
+			method get
+			proc
+				if (mClearCommand == ^null)
+				begin
+					lambda doClear(param)
+					begin
+						mTicker.Clear()
+					end
+					lambda canClear(param)
+					begin
+						mreturn (mTicker.ElapsedTime.Ticks>0)
+					end
+					mClearCommand = new RelayCommand(doClear,canClear)
+				end
+				mreturn mClearCommand
+			endmethod
+		endproperty
+
+.endregion
+
+.region "IMenuViewModel Overrides"
+		
+		;;; <summary>
+		;;; Called by Sonata when a brand new program instance has been created.
+		;;; </summary>
+		public override method Initializing, boolean
+			required out errorMessage, String
+			endparams
+		proc
+			;;Initialize our environment
+			mTicker = new StopWatchTicker()
+			mTicker.ValueChanged += new EventHandler(mTicker_ValueChanged)
+			mreturn true
+		endmethod
+		
+		;;; <summary>
+		;;; Called by Sonata when this program instance is about to be deleted.
+		;;; </summary>
+		public override method Closing, void
+			endparams
+		proc
+			;;Clean up
+			mTicker.ValueChanged -= new EventHandler(mTicker_ValueChanged)
+			mTicker = ^null
+		endmethod
+		
+.endregion
+
+.region "IMenuSuspend"
+		
+		public method Suspending, void
+			endparams
+		proc
+			;;Nothing to do in this app
+		endmethod
+		
+		public method Resuming, void
+			endparams
+		proc
+			;;Nothing to do in this app
+		endmethod
+		
+.endregion
+		
+	endclass
+	
+endnamespace

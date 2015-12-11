@@ -1,0 +1,215 @@
+;;*****************************************************************************
+;;
+;; Title:       EnvironmentVariablesVM.dbl
+;;
+;; Type:        Class (ViewModel)
+;;
+;; Description: ViewModel for environment variables view
+;;
+;; Date:        14th February 2014
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;              http://www.synergex.com
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2014, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+
+import System
+import System.Collections.ObjectModel
+import System.IO
+import System.Reflection
+import System.Windows.Input
+import Sonata.Environment
+import Sonata.View
+import System.Xml.Serialization
+import System.Windows.Forms
+import System.Xml
+
+namespace Sonata.ViewModel
+
+	public class EnvironmentVariablesVM extends ViewModelBase
+
+		private mView, @EnvironmentVariablesView
+
+.region "Constructor"
+
+		public method EnvironmentVariablesVM
+			required in aView, @EnvironmentVariablesView
+			endparams
+		proc	
+			mView = aView
+			mView.DataContext = this
+			EnvironmentVariables = GetSavedEnvironmentVariables()
+		endmethod
+
+.endregion
+
+.region "Logic"
+
+		public static method GetSavedEnvironmentVariables, @ObservableCollection<EnvironmentVariable>
+			endparams
+		proc
+			
+			data envVarFile, String, String.Format("{0}\Sonata\EnvironmentVariables.xml",Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData))
+			data results, @ObservableCollection<EnvironmentVariable>, new ObservableCollection<EnvironmentVariable>()
+			
+			;;Do we have data to work with?
+			data stm, @FileStream
+			try
+			begin
+				stm = File.OpenRead(envVarFile)
+			end
+			catch (e, @Exception)
+			begin
+				stm = ^null
+			end
+			endtry
+			
+			if (stm!=^null)
+			begin
+				try
+				begin
+					data xs, @XmlSerializer, new XmlSerializer(^typeof(ObservableCollection<EnvironmentVariable>))
+					data xr, @XmlReader, new XmlTextReader(stm)
+					results = (@ObservableCollection<EnvironmentVariable>)xs.Deserialize(xr)
+					stm.Close()
+				end
+				catch (e, @Exception)
+				begin
+					stm.Close()
+					MessageBox.Show("Failed to load environment variable data. The error was: " + e.Message)
+				end
+				endtry
+			end
+			
+			mreturn results			
+			
+		endmethod
+		
+.endregion
+
+.region "Bindable properties"
+
+		private mEnvironmentVariables, @ObservableCollection<EnvironmentVariable>
+
+		public property EnvironmentVariables, @ObservableCollection<EnvironmentVariable>
+			method get
+			proc
+				mreturn mEnvironmentVariables
+			endmethod
+			method set
+			proc
+				mEnvironmentVariables = value
+				NotifyPropertyChanged("EnvironmentVariables")
+			endmethod
+		endproperty
+
+		private mSelectedEnvironmentVariable, @EnvironmentVariable
+
+		public property SelectedEnvironmentVariable, @EnvironmentVariable
+			method get
+			proc
+				mreturn mSelectedEnvironmentVariable
+			endmethod
+			method set
+			proc
+				mSelectedEnvironmentVariable = value
+				NotifyPropertyChanged("SelectedEnvironmentVariable")
+			endmethod
+		endproperty
+
+		public property BackgroundColor, String
+			method get
+			proc
+				mreturn Properties.Settings.Default.BackgroundColor
+			endmethod
+		endproperty
+		
+.endregion
+
+.region "SaveAndCloseCommand"
+
+		private mSaveAndCloseCommand, @ICommand
+		
+		public property SaveAndCloseCommand , @ICommand
+			method get
+			proc
+				if (mSaveAndCloseCommand == ^null)
+				begin
+					lambda doSaveAndCloseCommand(param)
+					begin
+						if (Boolean.Parse((string)param))
+						begin
+							data envVarFile, String, String.Format("{0}\Sonata\EnvironmentVariables.xml",Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData))
+							if (mEnvironmentVariables.Count>0) then
+							begin
+								try
+								begin
+									if (File.Exists(envVarFile))
+										File.Delete(envVarFile)
+									data stm, @Stream, File.Create(envVarFile)
+									if(stm!=^null)
+									begin
+										data xs, @XmlSerializer, new XmlSerializer(mEnvironmentVariables.GetType())
+										xs.Serialize(stm,mEnvironmentVariables)
+										stm.Close()
+									end
+								end
+								catch (e, @Exception)
+								begin
+									MessageBox.Show("Failed to save environment variable data! The error was " + e.Message)
+								end
+								endtry
+							end
+							else
+							begin
+								try
+								begin
+									File.Delete(envVarFile)
+								end
+								catch (e)
+								begin
+									nop
+								end
+								endtry								
+							end
+						end
+						mView.Close()
+					end
+					mSaveAndCloseCommand = new RelayCommand(doSaveAndCloseCommand)
+				end
+				mreturn mSaveAndCloseCommand
+			endmethod
+		endproperty
+		
+.endregion		
+
+	endclass
+
+endnamespace

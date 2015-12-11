@@ -1,0 +1,1397 @@
+;;*****************************************************************************
+;;
+;; Title:       MainMenuVM.dbl
+;;
+;; Type:        Class (ViewModel)
+;;
+;; Description: ViewModel for main window and Task Manager
+;;
+;; Date:        14th February 2014
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;              http://www.synergex.com
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2014, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+
+import System
+import System.Collections.Generic
+import System.Collections.ObjectModel
+import System.Diagnostics
+import System.IO
+import System.Reflection
+import System.Threading.Tasks
+import System.Windows
+import System.Windows.Controls
+import System.Windows.Forms.Integration
+import System.Windows.Input
+import System.Windows.Media
+import System.Windows.Media.Imaging
+import System.Windows.Threading
+
+import Sonata
+import Sonata.Interface
+import Sonata.Discovery
+import Sonata.Environment
+import Sonata.View
+import Sonata.ViewModel
+
+.array 0
+
+namespace Sonata.ViewModel
+	
+	public class MainMenuVM extends ViewModelBase
+		
+		;;Private data (used in this class only)
+		private mMainWindow,			@Window
+		private mTabControl,			@TabControl
+		private mHostSupport,			@HostSupport
+		
+		;;External data (exposed via properties)
+		private mViewHeight,			double
+		private mViewWidth,				double
+		
+		private mRunningPrograms,		@ObservableCollection<ProgramStatus>, new ObservableCollection<ProgramStatus>()
+		
+		private mAllowAppSuspend,		boolean
+		private mClosingAfterError,		boolean
+		private mLaunchMode,			DisplayMode
+		
+		private myDispatcher,			@Dispatcher
+		
+.region "Constructors"
+		
+		public method MainMenuVM
+			required in sender,			@Window
+			endparams
+		proc
+			;;Save away a reference to the main Window
+			mMainWindow = sender
+			
+			;;Save a reference to our dispatcher. We'll need this to call back into the
+			;;proxy after it calls us (via HostSupport) on a different thread
+			myDispatcher = Dispatcher.CurrentDispatcher
+			
+			;;Get a handle on the tabset that hosts application views
+			mTabControl = (@TabControl)App.FindUiElement(mMainWindow,"ApplicationTabSet")
+			addhandler(mTabControl.SelectionChanged,selectedTabChanged)
+
+			;;Create the host support object that program proxies use to raise events
+			;;back into Sonata, and bind the event handlers
+			mHostSupport = new HostSupport()
+			addhandler(mHostSupport.ApplicationClose,closeOrSuspendProgram)
+			addhandler(mHostSupport.ApplicationFatalError,appReportsFatalError)
+			addhandler(mHostSupport.ApplicationCriticalSection,appCriticalSection)
+
+			;;Make sure the AppData folder exists
+			data appDataPath, String, String.Format("{0}\Sonata",Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData))
+			if (!Directory.Exists(appDataPath))
+			begin
+				try
+				begin
+					Directory.CreateDirectory(appDataPath)
+				end
+				catch (e, @Exception)
+				begin
+					throw new ApplicationException("Failed to create app data folder!")
+				end
+				endtry
+			end
+			
+			;;Get user settings
+			loadOptions()
+			loadEnvironmentVariables()
+
+			VisualStateManager.GoToElementState(mMainWindow,"ApplicationState",true)
+			
+			loadApplications()
+			
+		endmethod
+		
+.endregion	
+		
+.region "Program Lifetime"
+		
+		private method doStartProgramCommand, void
+			params, @Object
+			endparams
+		proc
+			;;Get the start data for the program from the command parameter
+			data startParams,		[#]String,	((string)params).Split("|")
+			data appName,			String,		startParams[0]
+			data appDescription,	String,		startParams[1]
+			data appAssembly,		String,		startParams[2]
+			data appView,			String,		startParams[3]
+			
+			;;Is the app already loaded?
+			
+			data status, @ProgramStatus, getProgramStatusByName(appName)
+			if (status!=^null)
+			begin
+				;;Yes, the app is already loaded, switch to it
+				resumeProgram(status.GetProgramProxy())
+				status = ^null
+				mreturn
+			end
+			
+			;;The app is not loaded
+			
+			if (mLaunchMode==DisplayMode.Process)
+			begin
+				MessageBox.Show("Launching programs as discreet processes is still being implemented!")
+				mreturn
+			end
+
+			;;Create a WPF element that can host a WinForms control, and a WinForms control within it
+			;;If the program is to be hosted as a tab then the ProgramProxy will put the hosted programs
+			;;view inside a WPF Window, inside the WinForms control, inside the WPF host element. We can then
+			;;add the host element to out UI.
+			data hostElement,			@WindowsFormsHost
+			data winFormsControl,		@System.Windows.Forms.Control
+			data winFormsControlHandle,	IntPtr
+
+			if (mLaunchMode==DisplayMode.Tab)
+			begin
+				hostElement = new WindowsFormsHost()
+				winFormsControl = new System.Windows.Forms.Control()
+				hostElement.Child = winFormsControl
+				winFormsControlHandle = winFormsControl.Handle
+			end
+			
+			data domain,		@AppDomain
+			data proxy,			@ProgramProxy
+			
+			try
+			begin
+				;;Load the new ProgramProxy into a new AppDomain
+				data proxyType,	@Type, ^typeof(ProgramProxy)
+				data proxyParams, [#]@Object, new Object[#] {appAssembly, appView, mHostSupport, ViewWidth, ViewHeight, mAllowAppSuspend, mLaunchMode, winFormsControlHandle}
+				domain = AppDomain.CreateDomain(appName)
+				proxy = ^as(domain.CreateInstanceFromAndUnwrap(proxyType.Assembly.CodeBase,proxyType.FullName,true,BindingFlags.Default,^null,proxyParams,^null,^null),@ProgramProxy)
+			end
+			catch (e, @Exception)
+			begin
+				;;If we get there then there was a problem creating the AppDomain, because other than store
+				;;constructor parameters the proxy hasn't tried to do anyhing yet!
+				ErrorHeading = "Failed to Create AppDomain for Program"
+				ErrorMessage = e.Message
+				VisualStateManager.GoToElementState(mMainWindow,"ApplicationErrorState",true)
+				mreturn
+			end
+			endtry
+			
+			;;If we get here then we now have our proxy class and it's in a new AppDomain, but it
+			;;has not yet attempted to launch the program. We must call the StartApplication()
+			;;method for that to happen
+			
+			try
+			begin
+				data startError, String
+				if (proxy.StartApplication(startError)) then
+				begin
+					using proxy.DisplayMode select
+					(DisplayMode.Tab),
+					begin
+						;;Create a new tab
+						data tab, @TabItem, new TabItem()
+						tab.Header = appDescription
+						tab.Content = hostElement
+						tab.Tag = appName
+						
+						;;Put the tab in the tabset and make it the active tab
+						mTabControl.Items.Add(tab)
+						mTabControl.SelectedItem = tab
+						
+						;;Add the program proxy to the collection of running programs for task manager
+						mRunningPrograms.Add(new ProgramStatus(proxy,tab,domain))
+
+						;;Update the main window title
+						MainWindowTitle = String.Format("{0} [{1}]",Properties.Settings.Default.MenuTitle,appDescription)
+
+					end
+					(DisplayMode.Window),
+					begin
+						;;We successfully launched a program in a window
+						mRunningPrograms.Add(new ProgramStatus(proxy,^null,domain))
+					end
+					(DisplayMode.Process),
+						MessageBox.Show("MainMenuVM.doStartProgramCommand() is not keeping a collection of running external processes yet!")
+					endusing
+				end
+				else
+				begin
+					ErrorHeading = "Failed to Launch Program"
+					ErrorMessage = startError
+					VisualStateManager.GoToElementState(mMainWindow,"ApplicationErrorState",true)
+				end
+			end
+			catch (e, @Exception)
+			begin
+				ErrorHeading = "Unexpected Error During Program Launch"
+				ErrorMessage = e.Message
+				VisualStateManager.GoToElementState(mMainWindow,"ApplicationErrorState",true)
+			end
+			endtry
+			
+		endmethod
+		
+		;;This is an event handler for the HostSupport.ApplicationClose event
+		;;and is also called from elsewhere in this class
+		
+		private method closeOrSuspendProgram, void
+			required in proxy, @ProgramProxy
+			endparams
+		proc
+			;;Are we closing a suspendable program with suspend enabled?
+			if (mAllowAppSuspend && (proxy.IsSuspendable)) then
+			begin
+				;;Suspend the program
+				suspendProgram(proxy)
+			end
+			else
+			begin
+				;;Close the program
+				closeProgram(proxy)
+			end
+		endmethod
+		
+		;;; Fully close a program
+		private method closeProgram, void
+			required in proxy, @ProgramProxy
+			endparams
+		proc
+			
+			;;First make sure the program is not indicating that it is processing a critical section
+			if (!mClosingAfterError&&!getProgramStatusByName(proxy.Name).CanBeClosed)
+				mreturn
+
+			;;If we're closing because the program told us it had an error then
+			;;we don't need to call the Closing() method, it's already been done
+			;;by the proxy.
+			if (mClosingAfterError) then
+				mClosingAfterError = false
+			else
+			begin
+				;;Tell the app it's bing closed
+				proxy.CloseApplication()
+			end
+			
+			;;Find the apps ProgramStatus object
+			data status, @ProgramStatus, getProgramStatusByName(proxy.Name)
+			
+			;;Remove the app from the list of running apps
+			mRunningPrograms.Remove(status)
+			
+			;;Remove the app from the UI
+			if (status.State == ProgramState.Running)
+				mTabControl.Items.Remove(status.GetApplicationTab())
+			
+			;;Destroy the WPF window that is hosting the programs main view
+			proxy.DestroyWindow()
+			
+			;;Schedule the app domain to be unloaded. This must be done by an asynchronous call
+			;;because this method is fired by an event from the program proxy, which is in
+			;;the programs specific AppDomain, and the AppDomain can't be unloaded while
+			;;it is still in the call stack.
+			
+			myDispatcher.BeginInvoke(
+			&	new Action<Object>(unloadAppDomain),
+			&	DispatcherPriority.ApplicationIdle,
+			&	new Object[#] {status.GetApplicationDomain()}
+			&	)
+			
+			status = ^null
+			
+		endmethod
+		
+		private method unloadAppDomain, void
+			required in domain, @Object
+			endparams
+		proc
+			try
+			begin
+				
+				AppDomain.Unload(^as(domain,AppDomain))
+			end
+			catch (e, @Exception)
+			begin
+				nop
+			end
+			endtry
+		endmethod
+		
+		private method suspendProgram, void
+			required in proxy, @ProgramProxy
+			endparams
+		proc
+			if (proxy.IsSuspendable && (proxy.State == ProgramState.Running))
+			begin
+				;;Tell the app it's bing suspended
+				proxy.SuspendApplication()
+				
+				;;Find the programs ProgramStatus object and upate it
+				data status, @ProgramStatus, getProgramStatusByName(proxy.Name)
+				status.State = ProgramState.Suspended
+				
+				;;Remove the app from the UI.
+
+				using proxy.DisplayMode select
+				(DisplayMode.Tab),
+				begin
+					mTabControl.Items.Remove(status.GetApplicationTab())
+				end
+				(DisplayMode.Window),
+				begin
+					;;If the program is running in a Window then the SuspendApplication() call will already have hidden the window.
+					nop
+				end
+				(DisplayMode.Process),
+				begin
+					;;Anything to do here?
+					nop
+				end
+				endusing
+			end
+		endmethod
+		
+		private method resumeProgram, void
+			required in proxy, @ProgramProxy
+			endparams
+		proc
+			using proxy.State select
+			
+			(ProgramState.Running),
+				switchToRunningProgram(proxy)
+			
+			(ProgramState.Suspended),
+			begin
+				data status, @ProgramStatus, getProgramStatusByName(proxy.Name)
+				
+				;;Tell the app that it is being resumed
+				proxy.ResumeApplication()
+
+				;;Record the change in state
+				status.State = ProgramState.Running
+
+				;;Update the UI
+				using proxy.DisplayMode select
+				(DisplayMode.Tab),
+				begin
+					;;Put the programss tab back into the tabset and make it the active tab
+					mTabControl.Items.Add(status.GetApplicationTab())
+					mTabControl.SelectedItem = status.GetApplicationTab()
+				end
+				(DisplayMode.Window),
+				begin
+					;;If running in a window then ResumeApplication() will already have made the window visible again
+					nop
+				end
+				(DisplayMode.Process),
+				begin
+					;;Anything to do here?
+					nop
+				end
+				endusing
+			end
+			endusing			
+		endmethod
+		
+		;;; Resule all suspended programs
+		private method resumeSuspendedPrograms, void
+			endparams
+		proc
+			data status, @ProgramStatus
+			foreach status in mRunningPrograms
+				if (status.State == ProgramState.Suspended)
+					resumeProgram(status.GetProgramProxy())
+		endmethod
+		
+		private method switchToRunningProgram, void
+			required in proxy, @ProgramProxy
+			endparams
+		proc
+			if (proxy.State == ProgramState.Running)
+			begin
+				using proxy.DisplayMode select
+				(DisplayMode.Tab),
+					mTabControl.SelectedItem = getProgramStatusByName(proxy.Name).GetApplicationTab()
+				(DisplayMode.Window),
+					proxy.BringWindowToFront()
+				(DisplayMode.Process),
+					MessageBox.Show("MainMenuVM.switchToRunningProgram() doesn't support process mode yet!")
+				endusing
+			end
+		endmethod
+		
+		;;; Fully close all programs, except those processing a critrical section
+		private method closeAllPrograms, void
+			endparams
+		proc
+			if (mRunningPrograms.Count>0)
+			begin
+				data programToClose, int
+				for programToClose from mRunningPrograms.Count-1 thru 0 by -1
+				begin
+					;;Try to close the program. It might not close if its processing a critical section
+					data p, @ProgramStatus, mRunningPrograms[programToClose]
+					if (p.CanBeClosed)
+						closeProgram(p.GetProgramProxy())
+				end
+			end
+		endmethod
+		
+		;;This is an event handler for the HostSupport.ApplicationFatalError event
+		
+		private method appReportsFatalError, void
+			required in proxy, @ProgramProxy
+			required in message, String
+			endparams
+		proc
+			mClosingAfterError = true
+			closeProgram(proxy)
+			ErrorHeading = "Program Error"
+			VisualStateManager.GoToElementState(mMainWindow,"ApplicationErrorState",true)
+		endmethod
+		
+		;;This is an event handler for the HostSupport.ApplicationCriticalSection event
+		
+		private method appCriticalSection, void
+			required in proxy, @ProgramProxy
+			required in inCriticalSection, boolean
+			endparams
+		proc
+			;;Set the programs ProgramStatus.CanBeClosed property
+			data theProgram, @ProgramStatus
+			foreach theProgram in mRunningPrograms
+			begin
+				if (theProgram.GetProgramProxy()==proxy)
+				begin
+					theProgram.CanBeClosed = !inCriticalSection
+					exitloop
+				end
+			end
+			 
+		endmethod
+		
+.endregion	
+		
+.region "StartProgramCommand"
+		
+		private mStartProgramCommand, @ICommand
+		
+		public property StartProgramCommand, @ICommand
+			method get
+			proc
+				if (mStartProgramCommand==^null)
+					mStartProgramCommand = new RelayCommand(doStartProgramCommand)
+				mreturn mStartProgramCommand
+			endmethod
+		endproperty
+		
+.endregion
+		
+.region "CloseProgramCommand"
+		
+		;;This command is executed via the "Close Current Program" command on the main menu
+		
+		private mCloseProgramCommand, @ICommand
+		
+		public property CloseProgramCommand, @ICommand
+			method get
+			proc
+				if (mCloseProgramCommand==^null)
+				begin
+					lambda doCloseProgramCommand(params)
+					begin
+						;;Just behave as if the current program had requested to be closed.
+						data tab, @TabItem, ^as(mTabControl.SelectedItem,TabItem)
+						data proxy, @ProgramProxy, getProgramProxyFromTab(tab)
+						if (proxy!=^null)
+							closeOrSuspendProgram(proxy)
+					end
+					lambda canDoCloseProgramCommand(param)
+					begin
+						data tab, @TabItem, ^as(mTabControl.SelectedItem,TabItem)
+						mreturn (mSelectedTabContainsProgram && getProgramStatusFromTab(tab).CanBeClosed)
+					end
+					mCloseProgramCommand = new RelayCommand(doCloseProgramCommand,canDoCloseProgramCommand)
+				end
+				mreturn mCloseProgramCommand
+			endmethod
+		endproperty
+
+		private mSelectedTabContainsProgram, boolean
+
+		private method selectedTabChanged, void
+			sender, @Object
+			e, @SelectionChangedEventArgs
+			endparams
+		proc
+			;;Is there a selected tab page?
+			if (mTabControl.SelectedItem!=^null) then
+			begin
+				;;Yes, does it contain a program?
+				data tab, @TabItem, ^as(mTabControl.SelectedItem,TabItem)
+				mSelectedTabContainsProgram = (getProgramStatusFromTab(tab)!=^null)
+				if (mSelectedTabContainsProgram) then
+				begin
+					;;Update the main window title to include the current program name.
+					data proxy, @ProgramProxy, getProgramProxyFromTab(tab)
+					MainWindowTitle = string.Format("{0} [{1}]",Properties.Settings.Default.MenuTitle,proxy.Description)
+				end
+				else
+				begin
+					;;Not a program in the selected tab, display the default title.
+					MainWindowTitle = Properties.Settings.Default.MenuTitle
+				end
+			end
+			else
+			begin
+				;;No selected tab, display the default title.
+				MainWindowTitle = Properties.Settings.Default.MenuTitle
+			end
+		endmethod
+
+.endregion
+		
+.region "Task Manager"
+		
+		public property RunningPrograms, @ObservableCollection<ProgramStatus>
+			method get
+			proc
+				mreturn mRunningPrograms
+			endmethod
+			method set
+			proc
+				mRunningPrograms = value
+				NotifyPropertyChanged("RunningPrograms")
+			endmethod
+		endproperty
+		
+		private mSelectedProgram, @ProgramStatus
+		
+		public property SelectedProgram, @ProgramStatus
+			method get
+			proc
+				mreturn mSelectedProgram
+			endmethod
+			method set
+			proc
+				mSelectedProgram = value
+				NotifyPropertyChanged("SelectedProgram")
+			endmethod
+		endproperty
+		
+		private mStartTaskManagerCommand, @ICommand
+		
+		public property StartTaskManagerCommand, @ICommand
+			method get
+			proc
+				lambda canStartTaskManager(param)
+				begin
+					mreturn (mRunningPrograms.Count > 0)
+				end
+				if (mStartTaskManagerCommand==^null)
+					mStartTaskManagerCommand = new RelayCommand(doStartTaskManager,canStartTaskManager)
+				mreturn mStartTaskManagerCommand
+			endmethod
+		endproperty
+		
+		;TODO: BUG: Has to be a method because of the use of "this" which currently fails in a lambda!
+		private method doStartTaskManager, void
+			param, @Object
+			endparams
+		proc
+			;;If task manager is already running then bring it to the front
+			data tab, @TabItem
+			data found, boolean, false
+			foreach tab in mTabControl.Items
+			begin
+				if (tab.Header==(String)"Task Manager")
+				begin
+					mTabControl.SelectedItem = tab
+					found = true
+					exitloop
+				end
+			end
+			
+			;;If we didn't find it then we must start a new one
+			if (!found)
+			begin
+				data view = new TaskManagerView()
+				view.DataContext = this
+				
+				;;Create and configure a new TabItem to host Task Manager
+				data newTab, @TabItem, new TabItem()
+				newTab.Header = "Task Manager"
+				newTab.Content = view
+				
+				;;Add the TabItem to the TabControl
+				mTabControl.Items.Add(newTab)
+				mTabControl.SelectedItem = newTab
+			end
+		endmethod
+		
+		private mSwitchToProgramCommand, @ICommand
+		
+		public property SwitchToProgramCommand, @ICommand
+			method get
+			proc
+				if (mSwitchToProgramCommand==^null)
+				begin
+					lambda doSwitchToProgramCommand(param)
+					begin
+						resumeProgram(mSelectedProgram.GetProgramProxy())
+					end
+					lambda canSwitchToProgramCommand(param)
+					begin
+						mreturn (mSelectedProgram != ^null)
+					end
+					mSwitchToProgramCommand = new RelayCommand(doSwitchToProgramCommand,canSwitchToProgramCommand)
+				end
+				mreturn mSwitchToProgramCommand
+			endmethod
+		endproperty
+		
+		private mResumeSuspendedProgramsCommand, @ICommand
+		
+		public property ResumeSuspendedProgramsCommand, @ICommand
+			method get
+			proc
+				if (mResumeSuspendedProgramsCommand==^null)
+				begin
+					lambda doResumeSuspendedProgramsCommand(param)
+					begin
+						resumeSuspendedPrograms()
+					end
+					lambda canDoResumeSuspendedProgramsCommand(param)
+					begin
+						data programStatus, @ProgramStatus
+						data anySuspended, boolean, false
+						foreach programStatus in mRunningPrograms
+						begin
+							if (programStatus.State == ProgramState.Suspended)
+							begin
+								anySuspended = true
+								exitloop
+							end
+						end
+						mreturn anySuspended
+					end
+					mResumeSuspendedProgramsCommand = new RelayCommand(doResumeSuspendedProgramsCommand,canDoResumeSuspendedProgramsCommand)
+				end
+				mreturn mResumeSuspendedProgramsCommand
+			endmethod
+		endproperty
+		
+		private mSuspendProgramCommand, @ICommand
+		
+		public property SuspendProgramCommand, @ICommand
+			method get
+			proc
+				if (mSuspendProgramCommand==^null)
+				begin
+					lambda doSuspendProgramCommand(param)
+					begin
+						suspendProgram(mSelectedProgram.GetProgramProxy())
+					end
+					lambda canSuspendProgramCommand(param)
+					begin
+						mreturn ((mSelectedProgram != ^null) && mAllowAppSuspend && mSelectedProgram.Suspendable && (mSelectedProgram.State == ProgramState.Running) && mSelectedProgram.CanBeClosed)
+					end
+					mSuspendProgramCommand = new RelayCommand(doSuspendProgramCommand,canSuspendProgramCommand)
+				end
+				mreturn mSuspendProgramCommand
+			endmethod
+		endproperty
+		
+		private mTerminateProgramCommand, @ICommand
+		
+		public property TerminateProgramCommand, @ICommand
+			method get
+			proc
+				if (mTerminateProgramCommand==^null)
+				begin
+					lambda doTerminateProgramCommand(param)
+					begin
+						closeProgram(mSelectedProgram.GetProgramProxy())
+						if (mRunningPrograms.Count==0)
+							CloseTaskManagerCommand.Execute(^null)
+					end
+					lambda canTerminateProgramCommand(param)
+					begin
+						mreturn ((mSelectedProgram != ^null) && (mSelectedProgram.CanBeClosed))
+					end
+					mTerminateProgramCommand = new RelayCommand(doTerminateProgramCommand,canTerminateProgramCommand)
+				end
+				mreturn mTerminateProgramCommand
+			endmethod
+		endproperty
+		
+		private mTerminateAllProgramsCommand, @ICommand
+		
+		public property TerminateAllProgramsCommand, @ICommand
+			method get
+			proc
+				if (mTerminateAllProgramsCommand==^null)
+				begin
+					lambda doTerminateAllProgramsCommand(param)
+					begin
+						closeAllPrograms()
+						;;If all programs were closed then close Task Manager
+						if (mRunningPrograms.Count==0)
+							CloseTaskManagerCommand.Execute(^null)
+					end
+					lambda canTerminateAllProgramsCommand(param)
+					begin
+						mreturn (mRunningPrograms.Count > 0)
+					end
+					mTerminateAllProgramsCommand = new RelayCommand(doTerminateAllProgramsCommand,canTerminateAllProgramsCommand)
+				end
+				mreturn mTerminateAllProgramsCommand
+			endmethod
+		endproperty
+		
+		private mCloseTaskManagerCommand, @ICommand
+		
+		public property CloseTaskManagerCommand , @ICommand
+			method get
+			proc
+				if (mCloseTaskManagerCommand == ^null)
+				begin
+					lambda doCloseTaskManager(param)
+					begin
+						data tab, @TabItem
+						foreach tab in mTabControl.Items
+						begin
+							if (tab.Header==(String)"Task Manager")
+							begin
+								mTabControl.Items.Remove(tab)
+								exitloop
+							end
+						end
+					end
+					mCloseTaskManagerCommand = new RelayCommand(doCloseTaskManager)
+				end
+				mreturn mCloseTaskManagerCommand
+			endmethod
+		endproperty
+		
+		private method getProgramStatusByName, @ProgramStatus
+			required in name, String
+			endparams
+		proc
+			data status, @ProgramStatus
+			data found, boolean
+			foreach status in mRunningPrograms
+			begin
+				if (status.Name.eqs.name)
+				begin
+					found = true
+					exitloop
+				end
+			end
+			if (!found)
+				status = ^null
+			mreturn status
+		endmethod
+		
+		private method getProgramStatusFromTab, @ProgramStatus
+			required in tab, @TabItem
+			endparams
+		proc
+			data status, @ProgramStatus
+			if ((tab!=^null) && (tab.Tag!=^null) && (tab.Tag.is.String))
+			begin
+				data appName, String, ^as(tab.Tag,string)
+				status = getProgramStatusByName(appName)
+			end
+			mreturn status
+		endmethod
+		
+		private method getProgramProxyFromTab, @ProgramProxy
+			required in tab, @TabItem
+			endparams
+		proc
+			data proxy, @ProgramProxy
+			data status, @ProgramStatus, getProgramStatusFromTab(tab)
+			if (status!=^null)
+				proxy = status.GetProgramProxy()
+			mreturn proxy
+		endmethod
+		
+.endregion
+		
+.region "Discover Programs"
+		
+		private mProgramDiscoveryCommand, @ICommand
+		
+		public property ProgramDiscoveryCommand, @ICommand
+			method get
+			proc
+				if (mProgramDiscoveryCommand == ^null)
+				begin
+					lambda doProgramDiscoveryCommand(param)
+					begin
+						;;Create the View and ViewModel
+						data view, @ProgramDiscoveryView, new ProgramDiscoveryView()
+						data viewModel, @ProgramDiscoveryVM, new ProgramDiscoveryVM(view)
+						view.Owner = mMainWindow
+						view.ShowDialog()
+						;;Reload the menu
+						loadApplications()
+					end
+					lambda canDoProgramDiscoveryCommand(param)
+					begin
+						mreturn (mRunningPrograms.Count==0)
+					end
+					mProgramDiscoveryCommand = new RelayCommand(doProgramDiscoveryCommand,canDoProgramDiscoveryCommand)
+				end
+				mreturn mProgramDiscoveryCommand
+			endmethod
+		endproperty
+		
+		private method loadApplications, void
+			endparams
+		proc
+			data appMenu, @MenuItem, (@MenuItem)App.FindUiElement(mMainWindow,"ApplicationMenuRoot")
+
+			;;First get rid of any programs thar are already on the menu
+			appMenu.Items.Clear()
+
+			;;Create a Dictionary to store the menus
+			data menus, @Dictionary<String,MenuItem>, new Dictionary<String, MenuItem>()
+			menus.Add("",appMenu)
+
+			data clientAssemblies, @ObservableCollection<ProgramAssembly>, ProgramDiscoveryVM.GetSavedProgramAssemblies()
+				
+			data declaredAssembly, @ProgramAssembly
+			foreach declaredAssembly in clientAssemblies
+			begin
+				data discoveredProgram, @HostableWpfView
+				foreach discoveredProgram in declaredAssembly.Programs
+				begin
+					data newMenuItem, @MenuItem, new MenuItem()
+					newMenuItem.Header = discoveredProgram.Description
+					newMenuItem.Command = StartProgramCommand
+					newMenuItem.CommandParameter = string.Format("{0}|{1}|{2}|{3}",
+					&	discoveredProgram.Name,
+					&	discoveredProgram.Description,
+					&	declaredAssembly.AssemblyPath,
+					&	discoveredProgram.ViewTypeName)
+
+					;;Add the menu item to the appropriate menu
+
+					data foundMenu, @MenuItem
+					if (!menus.TryGetValue(discoveredProgram.SubSystem,foundMenu))
+					begin
+						;;New subsystem, create a new root menu for it
+						foundMenu = new MenuItem()
+						foundMenu.Header = discoveredProgram.SubSystem
+						appMenu.Items.Add(foundMenu)
+						menus.Add(discoveredProgram.SubSystem,foundMenu)
+					end
+					foundMenu.Items.Add(newMenuItem)
+				end
+			end
+			
+			appMenu.IsEnabled = (appMenu.Items.Count>0)
+
+		endmethod
+		
+.endregion
+		
+.region "Main window properties"
+
+		private mMainWindowTitle, String, Properties.Settings.Default.MenuTitle
+		
+		public property MainWindowTitle, String
+			method get
+			proc
+				mreturn mMainWindowTitle
+			endmethod
+			method set
+			proc
+				mMainWindowTitle = value
+				NotifyPropertyChanged("MainWindowTitle")
+			endmethod
+		endproperty
+		
+		public property BackgroundColor, String
+			method get
+			proc
+				mreturn Properties.Settings.Default.BackgroundColor
+			endmethod
+		endproperty
+		
+		private mBackgroundImage, @BitmapImage
+		
+		public property BackgroundImage, @BitmapImage
+			method get
+			proc
+				data imageFile, String, Properties.Settings.Default.BackgroundImage
+				if (!String.IsNullOrWhiteSpace(imageFile)&&File.Exists(imageFile)) then
+				begin
+					try
+					begin
+						mBackgroundImage = new BitmapImage(new Uri(imageFile))
+					end
+					catch (e, @Exception)
+					begin
+						mBackgroundImage = ^null
+					end
+					endtry
+				end
+				else
+					mBackgroundImage = ^null
+				mreturn mBackgroundImage
+			endmethod
+		endproperty
+		
+.endregion
+		
+.region "Window Resize"
+		
+		public property ViewHeight, double
+			method get
+			proc
+				mreturn mViewHeight
+			endmethod
+			method set
+			proc
+				mViewHeight = value
+				NotifyPropertyChanged("ViewHeight")
+			endmethod
+		endproperty
+		
+		public property ViewWidth, double
+			method get
+			proc
+				mreturn mViewWidth
+			endmethod
+			method set
+			proc
+				mViewWidth = value
+				NotifyPropertyChanged("ViewWidth")
+			endmethod
+		endproperty
+		
+		private mResizeCommand,	@ICommand
+		
+		public property ResizeCommand, @ICommand
+			method get
+			proc
+				if (mResizeCommand==^null)
+				begin
+					lambda doResizeCommand(param)
+					begin
+						;;We will wind up here once every time Sonatas main window is
+						;;resized, maximized or restored, but not when the winodow is minimized.
+						;;We need to resize the content of any program tabs.
+						data tab, @TabItem, ^as(mTabControl.SelectedItem,TabItem)
+						ViewHeight = ((@FrameworkElement)tab.Content).ActualHeight
+						ViewWidth = ((@FrameworkElement)tab.Content).ActualWidth
+						foreach tab in mTabControl.Items
+						begin
+							data proxy, @ProgramProxy, getProgramProxyFromTab(tab)
+							if (proxy!=^null)
+								proxy.ResizeView(ViewWidth,ViewHeight)
+						end
+					end
+					mResizeCommand = new RelayCommand(doResizeCommand)
+				end
+				mreturn mResizeCommand
+			endmethod
+		endproperty
+		
+.endregion
+		
+.region "Error View"
+		
+		private mErrorHeading, String
+		
+		public property ErrorHeading, String
+			method get
+			proc
+				mreturn mErrorHeading
+			endmethod
+			method set
+			proc
+				mErrorHeading = value
+				NotifyPropertyChanged("ErrorHeading")
+			endmethod
+		endproperty
+		
+		private mErrorMessage, String
+		
+		public property ErrorMessage, String
+			method get
+			proc
+				mreturn mErrorMessage
+			endmethod
+			method set
+			proc
+				mErrorMessage = value
+				NotifyPropertyChanged("ErrorMessage")
+			endmethod
+		endproperty
+		
+		private mCloseErrorViewCommand,	@ICommand
+		
+		public property CloseErrorViewCommand, @ICommand
+			method get
+			proc
+				if (mCloseErrorViewCommand == ^null)
+				begin
+					lambda doCloseErrorView(param)
+					begin
+						;;Clean up so there is no chance of displaying the same error details later
+						ErrorHeading = string.Empty
+						ErrorMessage = string.Empty
+						VisualStateManager.GoToElementState(mMainWindow,"ApplicationState",true)
+					end
+					mCloseErrorViewCommand = new RelayCommand(doCloseErrorView)
+				end
+				mreturn mCloseErrorViewCommand
+			endmethod
+		endproperty
+		
+.endregion
+		
+.region "User and System Options"
+		
+		private mMenuOptionsCommand, @ICommand
+		
+		public property MenuOptionsCommand, @ICommand
+			method get
+			proc
+				if (mMenuOptionsCommand == ^null)
+				begin
+					lambda doMenuOptionsCommand(param)
+					begin
+						;;Create the View and ViewModel
+						data view, @OptionsView, new OptionsView()
+						data vm, @OptionsVM, new OptionsVM(view)
+						view.Owner = mMainWindow
+						view.ShowDialog()
+						loadOptions()
+					end
+					lambda canDoMenuOptionsCommand(param)
+					begin
+						mreturn (mRunningPrograms.Count==0)
+					end
+					mMenuOptionsCommand = new RelayCommand(doMenuOptionsCommand, canDoMenuOptionsCommand)
+				end
+				mreturn mMenuOptionsCommand
+			endmethod
+		endproperty
+		
+		method loadOptions, void
+			endparams
+			record
+				sts, i4
+			endrecord
+		proc			
+			;;If this is the first time the program has run, and no background image is set,
+			;;set the Sonata logo as the background image. Also set the help file to the Sonata
+			;;help file.
+			if (Properties.Settings.Default.FirstTimeRun)
+			begin
+				;;Set a default background image
+				if (String.IsNullOrWhiteSpace(Properties.Settings.Default.BackgroundImage))
+				begin
+					data logoPath, String, String.Format("{0}\SonataLogo.png",Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location))
+					if (File.Exists(logoPath))
+						Properties.Settings.Default.BackgroundImage = logoPath
+				end				
+				;Set a default help file
+				if (string.IsNullOrWhiteSpace(Properties.Settings.Default.HelpUrlOrFile))
+				begin
+					data helpFilePath, String, String.Format("{0}\Sonata.chm",Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location))
+					if (File.Exists(helpFilePath))
+						Properties.Settings.Default.HelpUrlOrFile = helpFilePath
+				end
+				;;Make sure this only happens once
+				Properties.Settings.Default.FirstTimeRun = false
+				Properties.Settings.Default.Save()
+			end
+
+			NotifyPropertyChanged("MainWindowTitle")
+			NotifyPropertyChanged("BackgroundColor")
+			NotifyPropertyChanged("BackgroundImage")
+			NotifyPropertyChanged("HelpPageVisible")
+			NotifyPropertyChanged("HelpPageText")
+			NotifyPropertyChanged("HomePageVisible")
+			NotifyPropertyChanged("HomePageText")
+			NotifyPropertyChanged("SupportPageVisible")
+			NotifyPropertyChanged("SupportText")
+			NotifyPropertyChanged("UpdateCheckVisible")
+			NotifyPropertyChanged("HelpMenuVisible")
+			
+			mAllowAppSuspend = Properties.Settings.Default.KeepProgramsAlive
+			mLaunchMode = Properties.Settings.Default.LaunchMode
+			
+		endmethod
+		
+.endregion
+	
+.region "Environment Variables"
+
+		private mEnvironmentVariablesCommand, @ICommand
+		
+		public property EnvironmentVariablesCommand, @ICommand
+			method get
+			proc
+				if (mEnvironmentVariablesCommand == ^null)
+				begin
+					lambda doEnvironmentVariablesCommand(param)
+					begin
+						;;Create the View and ViewModel
+						data view, @EnvironmentVariablesView, new EnvironmentVariablesView()
+						data viewModel, @EnvironmentVariablesVM, new EnvironmentVariablesVM(view)
+						view.Owner = mMainWindow
+						view.ShowDialog()
+						;;Set the new environment variables (this will NOT delete any previous variables)
+						loadEnvironmentVariables()
+					end
+					lambda canDoEnvironmentVariablesCommand(param)
+					begin
+						mreturn (mRunningPrograms.Count==0)
+					end
+					mEnvironmentVariablesCommand = new RelayCommand(doEnvironmentVariablesCommand,canDoEnvironmentVariablesCommand)
+				end
+				mreturn mEnvironmentVariablesCommand
+			endmethod
+		endproperty
+		
+		private method loadEnvironmentVariables, void
+			endparams
+		proc
+			data envVars, @ObservableCollection<EnvironmentVariable>, EnvironmentVariablesVM.GetSavedEnvironmentVariables()
+			data envVar, @EnvironmentVariable
+			data sts, i4
+			foreach envVar in envVars
+				xcall setlog(envVar.Name,envVar.Value,sts)
+		endmethod
+
+.endregion
+
+.region "LaunchHelpOrUrlCommand"
+		
+		private mLaunchHelpOrUrlCommand, @ICommand
+		
+		public property LaunchHelpOrUrlCommand, @ICommand
+			method get
+			proc
+				if (mLaunchHelpOrUrlCommand==^null)
+				begin
+					lambda doLaunchHelpOrUrlCommand(param)
+					begin
+						data itemToLaunch, String
+						using ((string)param) select
+						("HELP"),
+							itemToLaunch = Properties.Settings.Default.HelpUrlOrFile
+						("HOME"),
+							itemToLaunch = Properties.Settings.Default.HomePageUrl
+						("SUPPORT"),
+							itemToLaunch = Properties.Settings.Default.SupportUrl
+						endusing
+						if (!string.IsNullOrWhiteSpace(itemToLaunch))
+						begin
+							try
+							begin
+								Process.Start(itemToLaunch)
+							end
+							catch (e, @Exception)
+							begin
+								nop
+							end
+							endtry
+						end
+					end
+					lambda canDoLaunchHelpOrUrlCommand(param)
+					begin
+						using ((string)param) select
+						("HELP"),
+							mreturn !String.IsNullOrWhiteSpace(Properties.Settings.Default.HelpUrlOrFile)
+						("HOME"),
+							mreturn !String.IsNullOrWhiteSpace(Properties.Settings.Default.HomePageUrl)
+						("SUPPORT"),
+							mreturn !String.IsNullOrWhiteSpace(Properties.Settings.Default.SupportUrl)
+						endusing
+						mreturn false
+					end
+					mLaunchHelpOrUrlCommand = new RelayCommand(doLaunchHelpOrUrlCommand,canDoLaunchHelpOrUrlCommand)
+				end
+				mreturn mLaunchHelpOrUrlCommand
+			endmethod
+		endproperty
+		
+		public property HelpMenuVisible, Visibility
+			method get
+			proc
+				if (Properties.Settings.Default.EnableApplicationHelp||Properties.Settings.Default.EnableHomePage||Properties.Settings.Default.EnableSupport||Properties.Settings.Default.ShowUpdateCheck) then
+					mreturn Visibility.Visible
+				else
+					mreturn Visibility.Collapsed
+			endmethod
+		endproperty
+
+		public property HelpPageVisible, Visibility
+			method get
+			proc
+				if (Properties.Settings.Default.EnableApplicationHelp) then
+					mreturn Visibility.Visible
+				else
+					mreturn Visibility.Collapsed
+			endmethod
+		endproperty
+
+		public property HelpPageText, String
+			method get
+			proc
+				mreturn Properties.Settings.Default.ApplicationHelpText
+			endmethod
+		endproperty
+		
+		public property HomePageVisible, Visibility
+			method get
+			proc
+				if (Properties.Settings.Default.EnableHomePage) then
+					mreturn Visibility.Visible
+				else
+					mreturn Visibility.Collapsed
+			endmethod
+		endproperty
+		
+		public property HomePageText, String
+			method get
+			proc
+				mreturn Properties.Settings.Default.HomePageText
+			endmethod
+		endproperty
+
+		public property SupportPageVisible, Visibility
+			method get
+			proc
+				if (Properties.Settings.Default.EnableSupport) then
+					mreturn Visibility.Visible
+				else
+					mreturn Visibility.Collapsed
+			endmethod
+		endproperty
+		
+		public property SupportText, String
+			method get
+			proc
+				mreturn Properties.Settings.Default.SupportText
+			endmethod
+		endproperty
+		
+.endregion
+	
+.region "CheckForUpdateCommand"
+
+		private mCheckForUpdateCommand, @ICommand
+		
+		public property CheckForUpdateCommand, @ICommand
+			method get
+			proc
+				if (mCheckForUpdateCommand == ^null)
+				begin
+					lambda doCheckForUpdateCommand(param)
+					begin
+						;;Create the View and ViewModel
+						data view, @CheckForUpdateView, new CheckForUpdateView()
+						data vm, @CheckForUpdateVM, new CheckForUpdateVM(view)
+						view.Owner = mMainWindow
+						view.ShowDialog()
+					end
+					lambda canDoCheckForUpdateCommand(param)
+					begin
+						mreturn (mRunningPrograms.Count==0)
+					end
+					mCheckForUpdateCommand = new RelayCommand(doCheckForUpdateCommand, canDoCheckForUpdateCommand)
+				end
+				mreturn mCheckForUpdateCommand
+			endmethod
+		endproperty
+		
+		public property UpdateCheckVisible, Visibility
+			method get
+			proc
+				if (Properties.Settings.Default.ShowUpdateCheck) then
+					mreturn Visibility.Visible
+				else
+					mreturn Visibility.Collapsed
+			endmethod
+		endproperty
+		
+.endregion
+			
+.region "Exit Sonata"
+		
+		private mExitCommand, @ICommand
+		
+		public property ExitCommand, @ICommand
+			method get
+			proc
+				if (mExitCommand==^null)
+				begin
+					lambda doExitCommand(param)
+					begin
+						closeAllPrograms()
+						if (mRunningPrograms.Count==0)
+							Application.Current.Shutdown()
+					end
+					lambda canDoExitCommand(param)
+					begin
+						data canClose, boolean, true
+						data runningProgram, @ProgramStatus
+						foreach runningProgram in RunningPrograms
+						begin
+							if (!runningProgram.CanBeClosed)
+							begin
+								canClose = false
+								exitloop
+							end
+						end
+						mreturn canClose
+					end
+					mExitCommand = new RelayCommand(doExitCommand,canDoExitCommand)
+				end
+				mreturn mExitCommand
+			endmethod
+		endproperty
+			
+.endregion
+		
+	endclass
+	
+endnamespace

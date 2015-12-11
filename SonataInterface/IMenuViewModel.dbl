@@ -1,0 +1,114 @@
+;;*****************************************************************************
+;;
+;; Title:       IMenuViewModel.dbl
+;;
+;; Type:        Interface
+;;
+;; Description: Defines an interface that all ViewModels associated with main
+;;				Views hosted by Sonata must implement.
+;;
+;; Date:        14th February 2014
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;              http://www.synergex.com
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2014, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+
+import System
+import System.Windows
+
+namespace Sonata.Interface
+
+	public delegate CloseEventHandler, void
+		
+	enddelegate
+	
+	public delegate FatalErrorEventHandler, void
+		required in errorMessage, String
+	enddelegate
+	
+	public enum ProgramState
+		Running
+		Suspended
+	endenum
+	
+	public interface IMenuViewModel
+		
+		;;; <summary>
+		;;; The view that a ViewModel is associated with
+		;;; </summary>
+		property View, @IMenuView
+			method get
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;; The state property will be updated by Sonata to indicate the current state
+		;;; (Running or Suspended) of the program. For Sonata to operate correctly this
+		;;; property sould raise a "PropertyChanged" event when its value changes.
+		;;; </summary>
+		property State, ProgramState
+			method get
+			endmethod
+			method set
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;; This event is raised in order to close the current program instance.
+		;;; Sonata listens for this event and then either terminates or suspends
+		;;; the program, depending on program capabilities and user preferences.
+		;;; </summary>
+		event Close	,@CloseEventHandler
+		
+		;;; <summary>
+		;;; This event is raised in order to tell Sonata that the program
+		;;; encountered a fatal error and should be closed.
+		;;; </summary>
+		event FatalError, @FatalErrorEventHandler
+		
+		;;; <summary>
+		;;; Called by Sonata when a new program instance has been created.
+		;;; </summary>
+		method Initializing, boolean
+			required out errorMessage, String
+		endmethod
+		
+		;;; <summary>
+		;;; Called by Sonata when this program instance is about to be closed.
+		;;; </summary>
+		method Closing, void
+			
+		endmethod
+		
+	endinterface	
+
+endnamespace
+

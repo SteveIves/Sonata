@@ -1,0 +1,76 @@
+﻿<!--
+    Title:          PresidentsListView.xaml
+
+    Type:           WPF View (UserControl)
+
+    Description:    Displays information about a collection of Presidents
+
+    Date:           18th February 2014
+
+    Author:         Steve Ives, Synergex Professional Services Group
+                    http://www.synergex.com
+
+    **************************************************************************
+
+    Copyright (c) 2014, Synergex International, Inc.
+    All rights reserved.
+
+    Redistribution and use in source and binary forms, with or without
+    modification, are permitted provided that the following conditions are met:
+
+    * Redistributions of source code must retain the above copyright notice,
+      this list of conditions and the following disclaimer.
+
+    * Redistributions in binary form must reproduce the above copyright notice,
+      this list of conditions and the following disclaimer in the documentation
+      and/or other materials provided with the distribution.
+
+    THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+    AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+    IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+    ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+    LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+    CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+    SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+    INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+    CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+    ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+    POSSIBILITY OF SUCH DAMAGE.
+
+    **************************************************************************  
+-->
+
+<UserControl x:Class="SonataExamplePrograms.View.PresidentsListView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:v="clr-namespace:SonataExamplePrograms.View"
+             mc:Ignorable="d" 
+             d:DesignHeight="600" d:DesignWidth="900">
+    <Grid>
+
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <DataGrid Grid.Row="0" Margin="10" ItemsSource="{Binding Presidents}" SelectedItem="{Binding SelectedPresident, Mode=TwoWay}"
+                  RowHeaderWidth="0" CanUserAddRows="False" CanUserDeleteRows="False" CanUserResizeRows="False"
+                  AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single" GridLinesVisibility="None" FontSize="18"
+                  v:Commands.DataGridDoubleClickCommand="{Binding ViewCommand}">
+            <DataGrid.Columns>
+                <DataGridTextColumn Width="1*" Header="Number" Binding="{Binding Number}" />
+                <DataGridTextColumn Width="3*" Header="Name" Binding="{Binding FullName}" />
+                <DataGridTextColumn Width="2*" Header="Party" Binding="{Binding Party}" />
+            </DataGrid.Columns>
+            <DataGrid.ContextMenu>
+                <ContextMenu>
+                    <MenuItem Header="View Detail" Command="{Binding ViewCommand}"/>
+                    <MenuItem Header="Close Program" Command="{Binding CloseCommand}"/>
+                </ContextMenu>
+            </DataGrid.ContextMenu>
+        </DataGrid>
+
+    </Grid>
+</UserControl>

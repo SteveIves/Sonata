@@ -1,0 +1,102 @@
+;;*****************************************************************************
+;;
+;; Title:       PresidentsBusinessLogic.dbl
+;;
+;; Type:        Class
+;;
+;; Description: Business logic for the Browse US Presidents program
+;;
+;; Date:        18th February 2014
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;              http://www.synergex.com
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2014, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+
+import System
+import System.Collections.ObjectModel
+
+namespace SonataExamplePrograms.Model
+
+	public class PresidentsBusinessLogic
+
+		public method GetPresidents, @ObservableCollection<President>
+		proc
+			data presidents = new ObservableCollection<President>()
+			presidents.Add(new President(1,"George Washington",Party.Independent,new DateTime(1789,4,30),new DateTime(1797,3,4)))
+			presidents.Add(new President(2,"John Adams",Party.Federalist,new DateTime(1797,3,4),new DateTime(1801,3,4)))
+			presidents.Add(new President(3,"Thomas Jefferson",Party.DemocraticRepublican,new DateTime(1801,3,4),new DateTime(1809,3,4)))
+			presidents.Add(new President(4,"James Madison",Party.DemocraticRepublican,new DateTime(1809,3,4),new DateTime(1817,3,4)))
+			presidents.Add(new President(5,"James Monroe",Party.DemocraticRepublican,new DateTime(1817,3,4),new DateTime(1825,3,4)))
+			presidents.Add(new President(6,"John Quincy Adams",Party.DemocraticRepublican,new DateTime(1825,3,4),new DateTime(1829,3,4)))
+			presidents.Add(new President(7,"Andrew Jackson",Party.Democratic,new DateTime(1829,3,4),new DateTime(1837,3,4)))
+			presidents.Add(new President(8,"Martin Van Buren",Party.Democratic,new DateTime(1837,3,4),new DateTime(1841,3,4)))
+			presidents.Add(new President(9,"William Henry Harrison",Party.Whig,new DateTime(1841,3,4),new DateTime(1841,4,4)))
+			presidents.Add(new President(10,"John Tyler",Party.Whig,new DateTime(1841,4,4),new DateTime(1845,3,4)))
+			presidents.Add(new President(11,"James K. Polk",Party.Democratic,new DateTime(1845,3,4),new DateTime(1849,3,4)))
+			presidents.Add(new President(12,"Zachary Taylor",Party.Whig,new DateTime(1849,3,4),new DateTime(1850,7,9)))
+			presidents.Add(new President(13,"Millard Fillmore",Party.Whig,new DateTime(1850,7,9),new DateTime(1853,3,4)))
+			presidents.Add(new President(14,"Franklin Pierce",Party.Democratic,new DateTime(1853,3,4),new DateTime(1857,3,4)))
+			presidents.Add(new President(15,"James Buchanan",Party.Democratic,new DateTime(1857,3,4),new DateTime(1861,3,4)))
+			presidents.Add(new President(16,"Abraham Lincoln",Party.Republican,new DateTime(1861,3,4),new DateTime(1865,4,15)))
+			presidents.Add(new President(17,"Andrew Johnson",Party.Democratic,new DateTime(1865,4,15),new DateTime(1869,3,4)))
+			presidents.Add(new President(18,"Ulysses S. Grant",Party.Republican,new DateTime(1869,3,4),new DateTime(1877,3,4)))
+			presidents.Add(new President(19,"Rutherford B. Hayes",Party.Republican,new DateTime(1877,3,4),new DateTime(1881,3,4)))
+			presidents.Add(new President(20,"James A. Garfield",Party.Republican,new DateTime(1881,3,4),new DateTime(1881,9,19)))
+			presidents.Add(new President(21,"Chester A. Arthur",Party.Republican,new DateTime(1881,9,19),new DateTime(1885,3,4)))
+			presidents.Add(new President(22,"Grover Cleveland",Party.Democratic,new DateTime(1885,3,4),new DateTime(1889,3,4)))
+			presidents.Add(new President(23,"Benjamin Harrison",Party.Republican,new DateTime(1889,3,4),new DateTime(1893,3,4)))
+			presidents.Add(new President(24,"Grover Cleveland",Party.Democratic,new DateTime(1893,3,4),new DateTime(1897,3,4)))
+			presidents.Add(new President(25,"William McKinley",Party.Republican,new DateTime(1897,3,4),new DateTime(1901,9,14)))
+			presidents.Add(new President(26,"Theodore Roosevelt",Party.Republican,new DateTime(1901,9,14),new DateTime(1909,3,4)))
+			presidents.Add(new President(27,"William Howard Taft",Party.Republican,new DateTime(1909,3,4),new DateTime(1913,3,4)))
+			presidents.Add(new President(28,"Woodrow Wilson",Party.Democratic,new DateTime(1913,3,4),new DateTime(1921,3,4)))
+			presidents.Add(new President(29,"Warren G. Harding",Party.Republican,new DateTime(1921,3,4),new DateTime(1923,8,2)))
+			presidents.Add(new President(30,"Calvin Coolidge",Party.Republican,new DateTime(1923,8,2),new DateTime(1929,3,4)))
+			presidents.Add(new President(31,"Herbert Hoover",Party.Republican,new DateTime(1929,3,4),new DateTime(1933,3,4)))
+			presidents.Add(new President(32,"Franklin D. Roosevelt",Party.Democratic,new DateTime(1933,3,4),new DateTime(1945,4,12)))
+			presidents.Add(new President(33,"Harry S. Truman",Party.Democratic,new DateTime(1945,4,12),new DateTime(1953,1,20)))
+			presidents.Add(new President(34,"Dwight D. Eisenhower",Party.Republican,new DateTime(1953,1,20),new DateTime(1961,1,20)))
+			presidents.Add(new President(35,"John F. Kennedy",Party.Democratic,new DateTime(1961,1,20),new DateTime(1963,11,22)))
+			presidents.Add(new President(36,"Lyndon B. Johnson",Party.Democratic,new DateTime(1963,11,22),new DateTime(1969,1,20)))
+			presidents.Add(new President(37,"Richard Nixon",Party.Republican,new DateTime(1969,1,20),new DateTime(1974,8,9)))
+			presidents.Add(new President(38,"Gerald Ford",Party.Republican,new DateTime(1974,8,9),new DateTime(1977,1,20)))
+			presidents.Add(new President(39,"Jimmy Carter",Party.Democratic,new DateTime(1977,1,20),new DateTime(1981,1,20)))
+			presidents.Add(new President(40,"Ronald Reagan",Party.Republican,new DateTime(1981,1,20),new DateTime(1989,1,20)))
+			presidents.Add(new President(41,"George H. W. Bush",Party.Democratic,new DateTime(1989,1,20),new DateTime(1993,1,20)))
+			presidents.Add(new President(42,"Bill Clinton",Party.Democratic,new DateTime(1993,1,20),new DateTime(2001,1,20)))
+			presidents.Add(new President(43,"George W. Bush",Party.Republican,new DateTime(2001,1,20),new DateTime(2009,1,20)))
+			presidents.Add(new President(44,"Barack Obama",Party.Democratic,new DateTime(2009,1,20)))
+			mreturn presidents
+		endmethod
+	
+	endclass
+
+endnamespace

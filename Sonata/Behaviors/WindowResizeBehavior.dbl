@@ -1,0 +1,207 @@
+;;*****************************************************************************
+;;
+;; Title:       WindowResizeBehavior.dbl
+;;
+;; Type:        Class
+;;
+;; Description: Handles window resize events in an MVVM environment
+;;
+;; Date:        14th February 2014
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;              http://www.synergex.com
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2014, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+
+import System
+import System.Windows
+import System.Windows.Interactivity
+import System.Windows.Interop
+
+namespace Sonata.Behaviors
+	
+	public class WindowResizeBehavior extends Behavior<Window>
+		
+		public event Resizing,  @EventHandler
+		public event Resized,   @EventHandler
+		public event Maximized, @EventHandler
+		public event Minimized, @EventHandler
+		public event Restored,  @EventHandler
+
+		;;Called when the behavior is attached
+		;;Hook the wndproc
+		protected override method OnAttached, void
+			endparams
+		proc
+			parent.OnAttached()
+			lambda doAttach(s, e)
+			begin
+				WireUpWndProc()
+			end
+			AssociatedObject.Loaded += doAttach
+		endmethod
+
+		;;Called when the behavior is detached
+		;;Remove our winproc hook
+		protected override method OnDetaching, void
+			endparams
+		proc
+			RemoveWndProc()
+			parent.OnDetaching()
+		endmethod
+		
+		private _hook, @HwndSourceHook
+		
+		private method WireUpWndProc, void
+			endparams
+		proc
+			data source, @HwndSource, ^as(HwndSource.FromVisual(AssociatedObject), HwndSource)
+			if (source != ^null)
+			begin
+				_hook = new HwndSourceHook(WndProc)
+				source.AddHook(_hook)
+			end
+		endmethod
+		
+		private method RemoveWndProc, void
+			endparams
+		proc
+			data source, @HwndSource, ^as(HwndSource.FromVisual(AssociatedObject), HwndSource)
+			if (source != ^null)
+				source.RemoveHook(_hook)
+		endmethod
+		
+		private const WM_EXITSIZEMOVE, Int32, 562
+		private const WM_SIZING, Int32, 532
+		private const WM_SIZE, Int32, 5
+		private const SIZE_RESTORED, Int32, 0
+		private const SIZE_MINIMIZED, Int32, 1
+		private const SIZE_MAXIMIZED, Int32, 2
+		private const SIZE_MAXSHOW, Int32, 3
+		private const SIZE_MAXHIDE, Int32, 4
+		
+		private reallyResizing, boolean
+
+		private method WndProc, IntPtr
+			hwnd, IntPtr 
+			message, Int32 
+			wParam, IntPtr 
+			lParam, IntPtr 
+			byref inout handled, Boolean 
+			endparams
+		proc
+			using message select
+			(WM_SIZING),
+			begin
+				;; (Gets interactive resize)
+				reallyResizing = true
+				OnResizing()
+			end
+
+			(WM_SIZE),
+			begin
+				;; (Gets minimize/maximize as well as final size)
+
+				using wParam.ToInt32() select
+				(SIZE_RESTORED),
+				begin
+					if (!reallyResizing)
+						OnRestored()
+				end
+
+				(SIZE_MINIMIZED),
+					OnMinimized()
+
+				(SIZE_MAXIMIZED),
+					OnMaximized()
+
+				(SIZE_MAXSHOW),
+					nop
+
+				(SIZE_MAXHIDE),
+					nop
+
+				endusing
+			end
+
+			(WM_EXITSIZEMOVE),
+			begin
+				;Called once when:
+				;Window is moved 
+				reallyResizing = false
+		
+				OnResized()
+			end
+
+			endusing
+
+			mreturn IntPtr.Zero
+
+		endmethod
+
+		private method OnResizing, void
+			endparams
+		proc
+			if (Resizing != ^null)
+				Resizing(AssociatedObject, EventArgs.Empty)
+		endmethod
+
+		private method OnResized, void
+			endparams
+		proc
+			if (Resized != ^null)
+				Resized(AssociatedObject, EventArgs.Empty)
+		endmethod
+		
+		private method OnRestored, void
+			endparams
+		proc
+			if (Restored != ^null)
+				Restored(AssociatedObject, EventArgs.Empty)
+		endmethod
+		
+		private method OnMinimized, void
+			endparams
+		proc
+			if (Minimized != ^null)
+				Minimized(AssociatedObject, EventArgs.Empty)
+		endmethod
+		
+		private method OnMaximized, void
+			endparams
+		proc
+			if (Maximized != ^null)
+				Maximized(AssociatedObject, EventArgs.Empty)
+		endmethod
+
+	endclass
+
+endnamespace
+

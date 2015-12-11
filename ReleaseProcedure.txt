@@ -1,0 +1,51 @@
+
+Sonata Release Procedure
+========================
+
+This document defines the procedure for distributing a new release of Sonata on CodePlex.
+
+1.  Make sure the documentation is up to date.
+
+2.  Build the entire solution in RELEASE mode.
+
+3.  Create a new SonataInstallations\v.s folder.
+
+4.  Copy the new version of SonataInterface.dll to the new SonataInstallations\v.s folder.
+
+5.  Create a new version of the "Libraries Only" NuGet package using the new SonataInterface.dll from the release folder.
+
+6.  Create new versions of the other NuGet packages, changing the dependency to the new "Libraries Only" package.
+
+7.  Build the SonataSetup project.
+
+8.  Copy the new installer to the SonataInstallations\v.s folder
+
+9.  Put the solution back in DEBUG mode.
+
+10.  Check everything in and note the CodePlex change set number.
+
+12.  Do the release on CodePlex.
+
+Immediately AFTER the release
+
+13. Upload all of the new NuGet packages to nuget.org.
+
+14. Move the now published NuGet packages from the UnderDevelopment folder to the Published folder.
+
+15. Bump the version number in CurrentRelease.xml to the CURRENT version.
+
+16. Bump the version numbers in all AssemblyInfo.dbl files to the NEXT version.
+
+17. Manually check out the SonataSetup.isl project file.
+
+18. Bump the "Product Version" string in the "General Information" page of
+    the SonataSetup project to the NEXT version.
+
+19. Generate a new "Product Code" GUID in the CodeGenSetup project.
+    DO NOT change the "Upgrade Code".
+
+20. Change the "Max Version" in the "Upgrade Paths" page of the SonataSetup
+    project to the PREVIOUS distributed version number.
+
+21. Check in these changes with a "Bumped version numbers for next release" comment.
+

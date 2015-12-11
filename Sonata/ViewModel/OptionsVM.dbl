@@ -1,0 +1,447 @@
+;;*****************************************************************************
+;;
+;; Title:       OptionsVM.dbl
+;;
+;; Type:        Class (ViewModel)
+;;
+;; Description: ViewModel for options view
+;;
+;; Date:        14th February 2014
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;              http://www.synergex.com
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2014, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+
+import System
+import System.IO
+import System.Windows
+import System.Windows.Input
+import Microsoft.Win32
+import Sonata.Interface
+import Sonata.View
+
+namespace Sonata.ViewModel
+
+	public class OptionsVM extends ViewModelBase
+
+		private mView, @OptionsView
+
+.region "Constructor"
+
+		public method OptionsVM
+			required in aView, @OptionsView
+			endparams
+		proc
+
+			mView = aView
+			mView.DataContext = this
+
+			mKeepAppsRunning = Properties.Settings.Default.KeepProgramsAlive
+			mShowSplashScreen = Properties.Settings.Default.ShowSplashScreen
+			mMenuTitle = Properties.Settings.Default.MenuTitle
+			mBackgroundColor = Properties.Settings.Default.BackgroundColor
+			mBackgroundImage = Properties.Settings.Default.BackgroundImage
+			mLaunchMode = Properties.Settings.Default.LaunchMode
+			mEnableHomePage = Properties.Settings.Default.EnableHomePage
+			mHomePageText = Properties.Settings.Default.HomePageText
+			mHomePageUrl = Properties.Settings.Default.HomePageUrl
+			mEnableSupport = Properties.Settings.Default.EnableSupport
+			mSupportText = Properties.Settings.Default.SupportText
+			mSupportUrl = Properties.Settings.Default.SupportUrl
+			mDownloadsUrl = Properties.Settings.Default.DownloadsUrl
+			mHelpUrlOrFile = Properties.Settings.Default.HelpUrlOrFile
+			mShowUpdateCheck = Properties.Settings.Default.ShowUpdateCheck
+			mEnableApplicationHelp = Properties.Settings.Default.EnableApplicationHelp
+			mApplicationHelpText = Properties.Settings.Default.ApplicationHelpText
+
+		endmethod
+
+.endregion
+
+.region "Bindable properties"
+
+		private mMenuTitle, String
+
+		public property MenuTitle, String
+			method get
+			proc
+				mreturn mMenuTitle
+			endmethod
+			method set
+			proc
+				mMenuTitle = value
+				NotifyPropertyChanged("MenuTitle")
+			endmethod
+		endproperty
+
+		private mBackgroundColor, String
+
+		public property BackgroundColor, String
+			method get
+			proc
+				mreturn mBackgroundColor
+			endmethod
+			method set
+			proc
+				mBackgroundColor = value
+				NotifyPropertyChanged("BackgroundColor")
+			endmethod
+		endproperty
+
+		private mBackgroundImage, String
+
+		public property BackgroundImage, String
+			method get
+			proc
+				mreturn mBackgroundImage
+			endmethod
+			method set
+			proc
+				mBackgroundImage = value
+				NotifyPropertyChanged("BackgroundImage")
+			endmethod
+		endproperty
+
+		private mKeepAppsRunning, boolean
+
+		public property KeepAppsRunning, boolean
+			method get
+			proc
+				mreturn mKeepAppsRunning
+			endmethod
+			method set
+			proc
+				mKeepAppsRunning = value
+				NotifyPropertyChanged("KeepAppsRunning")
+			endmethod
+		endproperty
+
+		private mShowSplashScreen, boolean
+
+		public property ShowSplashScreen, boolean
+			method get
+			proc
+				mreturn mShowSplashScreen
+			endmethod
+			method set
+			proc
+				mShowSplashScreen = value
+				NotifyPropertyChanged("ShowSplashScreen")
+			endmethod
+		endproperty		
+
+		private mLaunchMode, DisplayMode
+		
+		public property LaunchMode, DisplayMode
+			method get
+			proc
+				mreturn mLaunchMode
+			endmethod
+			method set
+			proc
+				mLaunchMode = value
+				NotifyPropertyChanged("LaunchMode")
+			endmethod
+		endproperty
+		
+		private mEnableHomePage, boolean
+		
+		public property EnableHomePage, boolean
+			method get
+			proc
+				mreturn mEnableHomePage
+			endmethod
+			method set
+			proc
+				mEnableHomePage = value
+				NotifyPropertyChanged("EnableHomePage")
+			endmethod
+		endproperty
+
+		private mHomePageText, String
+		
+		public property HomePageText, String
+			method get
+			proc
+				mreturn mHomePageText
+			endmethod
+			method set
+			proc
+				mHomePageText = value
+				NotifyPropertyChanged("HomePageText")
+			endmethod
+		endproperty
+		
+		private mHomePageUrl, String
+		
+		public property HomePageUrl, String
+			method get
+			proc
+				mreturn mHomePageUrl
+			endmethod
+			method set
+			proc
+				mHomePageUrl = value
+				NotifyPropertyChanged("HomePageUrl")
+			endmethod
+		endproperty
+		
+		private mEnableSupport, boolean
+		
+		public property EnableSupport, boolean
+			method get
+			proc
+				mreturn mEnableSupport
+			endmethod
+			method set
+			proc
+				mEnableSupport = value
+				NotifyPropertyChanged("EnableSupport")
+			endmethod
+		endproperty
+		
+		private mSupportText, String
+		
+		public property SupportText, String
+			method get
+			proc
+				mreturn mSupportText
+			endmethod
+			method set
+			proc
+				mSupportText = value
+				NotifyPropertyChanged("SupportText")
+			endmethod
+		endproperty
+		
+		private mSupportUrl, String
+
+		public property SupportUrl, String
+			method get
+			proc
+				mreturn mSupportUrl
+			endmethod
+			method set
+			proc
+				mSupportUrl = value
+				NotifyPropertyChanged("SupportUrl")
+			endmethod
+		endproperty
+
+		private mDownloadsUrl, String
+
+		public property DownloadsUrl, String
+			method get
+			proc
+				mreturn mDownloadsUrl
+			endmethod
+			method set
+			proc
+				mDownloadsUrl = value
+				NotifyPropertyChanged("DownloadsUrl")
+			endmethod
+		endproperty
+
+		private mHelpUrlOrFile, String
+
+		public property HelpUrlOrFile, String
+			method get
+			proc
+				mreturn mHelpUrlOrFile
+			endmethod
+			method set
+			proc
+				mHelpUrlOrFile = value
+				NotifyPropertyChanged("HelpUrlOrFile")
+			endmethod
+		endproperty
+
+		private mApplicationHelpText, String
+		
+		public property ApplicationHelpText, String
+			method get
+			proc
+				mreturn mApplicationHelpText
+			endmethod
+			method set
+			proc
+				mApplicationHelpText = value
+				NotifyPropertyChanged("ApplicationHelpText")
+			endmethod
+		endproperty
+		
+		private mShowUpdateCheck, boolean
+
+		public property ShowUpdateCheck, boolean
+			method get
+			proc
+				mreturn mShowUpdateCheck
+			endmethod
+			method set
+			proc
+				mShowUpdateCheck = value
+				NotifyPropertyChanged("ShowUpdateCheck")
+			endmethod
+		endproperty
+
+		private mEnableApplicationHelp, boolean
+
+		public property EnableApplicationHelp, boolean
+			method get
+			proc
+				mreturn mEnableApplicationHelp
+			endmethod
+			method set
+			proc
+				mEnableApplicationHelp = value
+				NotifyPropertyChanged("EnableApplicationHelp")
+			endmethod
+		endproperty
+		
+
+.endregion
+
+.region "SaveAndCloseCommand"
+		
+		private mSaveAndCloseCommand, @ICommand
+		
+		public property SaveAndCloseCommand , @ICommand
+			method get
+			proc
+				if (mSaveAndCloseCommand == ^null)
+				begin
+					mSaveAndCloseCommand = new RelayCommand(doSaveAndCloseCommand)
+				end
+				mreturn mSaveAndCloseCommand
+			endmethod
+		endproperty
+		
+		private method doSaveAndCloseCommand, void
+			param, @Object
+			endparams
+		proc
+			if (Boolean.Parse((string)param))
+			begin
+				;;If we have a background image then make sure it exists
+				if (!String.IsNullOrWhiteSpace(mBackgroundImage)&&!File.Exists(mBackgroundImage))
+					mBackgroundImage = string.Empty
+
+				Properties.Settings.Default.KeepProgramsAlive		= mKeepAppsRunning
+				Properties.Settings.Default.ShowSplashScreen		= mShowSplashScreen
+				Properties.Settings.Default.MenuTitle				= mMenuTitle
+				Properties.Settings.Default.BackgroundColor			= mBackgroundColor
+				Properties.Settings.Default.BackgroundImage			= mBackgroundImage
+				Properties.Settings.Default.LaunchMode				= mLaunchMode
+				Properties.Settings.Default.EnableHomePage			= mEnableHomePage
+				Properties.Settings.Default.HomePageText			= mHomePageText
+				Properties.Settings.Default.HomePageUrl				= mHomePageUrl
+				Properties.Settings.Default.EnableSupport			= mEnableSupport
+				Properties.Settings.Default.SupportText				= mSupportText
+				Properties.Settings.Default.SupportUrl				= mSupportUrl
+				Properties.Settings.Default.DownloadsUrl			= mDownloadsUrl
+				Properties.Settings.Default.HelpUrlOrFile			= mHelpUrlOrFile
+				Properties.Settings.Default.ShowUpdateCheck			= mShowUpdateCheck
+				Properties.Settings.Default.EnableApplicationHelp	= mEnableApplicationHelp
+				Properties.Settings.Default.ApplicationHelpText		= mApplicationHelpText
+				Properties.Settings.Default.Save()
+			end
+			mView.Close()
+		endmethod
+
+.endregion
+
+.region "FindImageFileCommand"
+		
+		private mFindImageFileCommand, @ICommand
+		
+		public property FindImageFileCommand, @ICommand
+			method get
+			proc
+				if (mFindImageFileCommand==^null)
+				begin
+					lambda doFindImageFileCommand(param)
+					begin
+						data dlg, @OpenFileDialog, new OpenFileDialog()
+						dlg.Filter = "Image Files (*.jpg,*.png)|*.jpg;*.jpeg;*.png|All Files (*.*)|*.*"
+						using ((string)param) select
+						("BACKGROUND"),
+						begin
+							dlg.Title = "Select Background Image"
+							if (dlg.ShowDialog())
+								BackgroundImage = dlg.FileName
+						end
+						endusing
+					end
+					mFindImageFileCommand = new RelayCommand(doFindImageFileCommand)
+				end
+				mreturn mFindImageFileCommand
+			endmethod
+		endproperty
+		
+.endregion
+		
+.region "ClearFieldCommand"
+		
+		private mClearFieldCommand, @ICommand
+		
+		public property ClearFieldCommand, @ICommand
+			method get
+			proc
+				if (mClearFieldCommand==^null)
+				begin
+					lambda doClearFieldCommand(param)
+					begin
+						using ((string)param) select
+						("BACKGROUND"),
+							BackgroundImage = String.Empty
+						endusing
+					end
+					lambda canDoClearFieldCommand(param)
+					begin
+						data canDo, boolean, false
+						using ((string)param) select
+						("BACKGROUND"),
+							canDo = !String.IsNullOrWhiteSpace(BackgroundImage)
+						endusing
+						mreturn canDo
+					end
+					mClearFieldCommand = new RelayCommand(doClearFieldCommand,canDoClearFieldCommand)
+				end
+				mreturn mClearFieldCommand
+			endmethod
+		endproperty
+		
+.endregion
+		
+	endclass
+
+endnamespace
+

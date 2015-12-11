@@ -1,0 +1,325 @@
+;;*****************************************************************************
+;;
+;; Title:       CalculatorViewModel.dbl
+;;
+;; Type:        Class
+;;
+;; Description: Main ViewModel for Calculator example program
+;;
+;; Date:        19th February 2014
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;              http://www.synergex.com
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2014, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+
+import System
+import System.ComponentModel
+import System.Diagnostics
+import System.Windows
+import System.Windows.Input
+import Sonata.Interface
+import Sonata.Interface.Tools
+import SonataExamplePrograms.Model
+
+namespace SonataExamplePrograms.ViewModel
+	
+	public class CalculatorViewModel extends ViewModelBase
+			
+		private mModel, @CalculatorModel
+		private mNewDisplayRequired, boolean, false
+
+		public method CalculatorViewModel
+			required in aView, @IMenuView
+			endparams
+			parent(aView)
+		proc
+
+		endmethod
+		
+.region "Bindable properties"
+
+		private mDisplay, string
+
+		public property Display, string
+			method get
+			proc
+				mreturn mDisplay
+			endmethod
+			method set
+			proc
+				mDisplay = value
+				NotifyPropertyChanged("Display")
+			endmethod
+		endproperty
+		
+.endregion
+
+.region "Other properties"
+
+		public property FirstOperand, string
+			method get
+			proc
+				mreturn mModel.FirstOperand
+			endmethod
+			method set
+			proc
+				mModel.FirstOperand = value
+			endmethod
+		endproperty
+		
+		public property SecondOperand, string
+			method get
+			proc
+				mreturn mModel.SecondOperand
+			endmethod
+			method set
+			proc
+				mModel.SecondOperand = value
+			endmethod
+		endproperty
+		
+		public property Operation, string
+			method get
+			proc
+				mreturn mModel.Operation
+			endmethod
+			method set
+			proc
+				mModel.Operation = value
+			endmethod
+		endproperty
+		
+		public property Result, string
+			method get
+			proc
+				mreturn mModel.Result
+			endmethod
+		endproperty
+
+		private mLastOperation, string
+		
+		public property LastOperation, string
+			method get
+			proc
+				mreturn mLastOperation
+			endmethod
+			method set
+			proc
+				mLastOperation = value
+			endmethod
+		endproperty
+		
+.endregion
+
+.region "OperationButtonCommand"
+
+		private mOperationButtonCommand, @ICommand
+		
+		public property OperationButtonCommand, @ICommand
+			method get
+			proc
+				if ((mOperationButtonCommand == ^null))
+					mOperationButtonCommand = new RelayCommand(doOperationButton)
+				mreturn mOperationButtonCommand
+			endmethod
+		endproperty
+		
+		;; for operations with 2 operands		
+		public method doOperationButton, void
+			operation, @object 
+			endparams
+		proc
+			try
+			begin
+				if ((FirstOperand == string.Empty) || (LastOperation == "=")) then
+				begin
+					FirstOperand = mDisplay
+					LastOperation = (string)operation
+				end
+				else
+				begin
+					SecondOperand = mDisplay
+					this.Operation = mLastOperation
+					mModel.CalculateResult()
+					LastOperation = (string)operation
+					Display = Result
+					FirstOperand = mDisplay
+				end
+				mNewDisplayRequired = true
+			end
+			catch (ex)
+			begin
+				if (Result==string.Empty) then
+					Display = "Error"
+				else
+					Display = Result
+			end
+			endtry
+		endmethod
+		
+.endregion
+
+.region "SingleOperationButtonCommand"
+
+		private mSingleOperationButtonCommand, @ICommand
+		
+		public property SingleOperationButtonCommand, @ICommand
+			method get
+			proc
+				if (mSingleOperationButtonCommand == ^null)
+					mSingleOperationButtonCommand = new RelayCommand(doSingleOperationButton)
+				mreturn mSingleOperationButtonCommand
+			endmethod
+		endproperty
+		
+		;; for sin,cos,tan		
+		public method doSingleOperationButton, void
+			operation, @object 
+			endparams
+		proc
+			try
+			begin
+				this.FirstOperand = this.Display
+				this.Operation = (string)operation
+				mModel.CalculateResult()
+				LastOperation = "="
+				Display = Result
+				FirstOperand = mDisplay
+				mNewDisplayRequired = true
+			end
+			catch (syn_exception)
+			begin
+				if (Result==string.Empty) then
+					Display = "Error"
+				else
+					Display = Result
+			end
+			endtry
+		endmethod
+		
+.endregion
+
+.region "DigitButtonCommand"
+
+		private mDigitButtonCommand, @ICommand
+		
+		public property DigitButtonCommand, @ICommand
+			method get
+			proc
+				if (mDigitButtonCommand == ^null)
+					mDigitButtonCommand = new RelayCommand(doDigitButton)
+				mreturn mDigitButtonCommand
+			endmethod
+		endproperty
+		
+		;; deals with button inputs and sorts out the display accordingly		
+		public method doDigitButton, void
+			button, @object 
+			endparams
+		proc
+			using ((string)button) select
+			("C"),
+			begin
+				Display = "0"
+				FirstOperand = string.Empty
+				SecondOperand = string.Empty
+				Operation = string.Empty
+				LastOperation = string.Empty
+			end
+			("Del"),
+			begin
+				if (mDisplay.Length > 1) then
+					Display = mDisplay.Substring(0, (mDisplay.Length - 1))
+				else
+					Display = "0"
+			end
+			("+/-"),
+			begin
+				if (mDisplay.Contains("-") || (mDisplay == "0")) then
+					Display = mDisplay.Remove(mDisplay.IndexOf("-"), 1)
+				else
+					Display = "-" + mDisplay
+			end
+			("."),
+			begin
+				if (mNewDisplayRequired) then
+					Display = "0."
+				else
+					if (!mDisplay.Contains("."))
+						Display = mDisplay + "."
+			end
+			(),
+			begin
+				if ((mDisplay == "0") || mNewDisplayRequired) then
+					Display = (string)button
+				else
+					Display = mDisplay + (string)button
+			end
+			endusing
+			mNewDisplayRequired = false
+		endmethod
+		
+.endregion
+
+.region "IMenuViewModel Overrides"
+		
+		;;; <summary>
+		;;; Called by Sonata when a brand new program instance has been created.
+		;;; </summary>
+		public override method Initializing, boolean
+			required out errorMessage, String
+			endparams
+		proc
+			;;Initialize our environment
+			this.mModel = new CalculatorModel()
+			this.mDisplay = "0"
+			this.FirstOperand = string.Empty
+			this.SecondOperand = string.Empty
+			this.Operation = string.Empty
+			this.mLastOperation = string.Empty
+			mreturn true
+		endmethod
+		
+		;;; <summary>
+		;;; Called by Sonata when this program instance is about to be deleted.
+		;;; </summary>
+		public override method Closing, void
+			endparams
+		proc
+			;;Clean up
+			this.mModel = ^null
+		endmethod
+		
+.endregion
+
+	endclass
+	
+endnamespace

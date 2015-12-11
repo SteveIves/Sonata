@@ -1,0 +1,341 @@
+;;*****************************************************************************
+;;
+;; Title:       MainWindow.xaml.dbl
+;;
+;; Type:        Class
+;;
+;; Description: Code-behind for MainWindow.xaml
+;;
+;; Date:        14th February 2014
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;              http://www.synergex.com
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2014, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+
+import System
+import System.Collections
+import System.Collections.Generic
+import System.Diagnostics
+import System.Reflection
+import System.Runtime.InteropServices
+import System.Text
+import System.Windows
+import System.Windows.Controls
+import System.Windows.Data
+import System.Windows.Documents
+import System.Windows.Input
+import System.Windows.Interop
+import System.Windows.Shapes
+import System.Windows.Media
+import System.Windows.Media.Imaging
+import System.Windows.Navigation
+import Sonata.Interface
+
+namespace SonataApplicationProxy
+
+	public partial class MainWindow extends Window
+
+		;;Saved constructor parameters
+		private mAssemblyPath,					String
+		private mViewTypeName,					String
+		private mViewWidth,						double
+		private mViewHeight,					double
+		
+		private view,							@IMenuView
+		private viewModel,						@IMenuViewModel
+		private hostWindowHandle,				IntPtr
+
+		public method MainWindow
+			endparams
+		proc
+			
+		endmethod
+
+		public method MainWindow
+			required in aAssemblyPath,			String
+			required in aViewTypeName,			String
+			required in aViewWidth,				double
+			required in aViewHeight,			double
+			endparams
+		proc
+			this.InitializeComponent()
+
+			mAssemblyPath = aAssemblyPath
+			mViewTypeName = aViewTypeName
+			mViewWidth = aViewWidth
+			mViewHeight = aViewHeight
+
+			;;---------------------------------------------------------------------------------
+			;;TODO: This code calls Symphony.Conductor.Static.ThreadSafe.AnchorToUIThread()
+			;;		We're calling it via reflection so that Sonata doesn't have to reference
+			;;		Symphony, and we're using the SymphonyConductor.dll that is in the same
+			;;		folder as the program assembly, so we don't have a dependency on any
+			;;		particular version of Symphony. Ideally this code should be moved into
+			;;		programs that are implemented with Symphony. It should BE OK if it's
+			;;		done BEFORE the InitializeComponent method in the View's constructor,
+			;;		but when I try this, data binding seems to stop working in the program.
+			
+			;;Is there a SymphonyConductor assembly in the same folder as the program assembly?
+			data assemblyFolder, String, System.IO.Path.GetDirectoryName(mAssemblyPath)
+			data symphonyConductorPath, String, String.Format("{0}\SymphonyConductor.dll",assemblyFolder)
+			if (System.IO.File.Exists(symphonyConductorPath))
+			begin
+				;;Yes, let's try to load it
+				data symphonyConductorAssembly, @Assembly
+				try
+				begin
+					symphonyConductorAssembly = Assembly.LoadFrom(symphonyConductorPath)
+				end
+				catch (e, @Exception)
+				begin
+					data errorMessage, String, String.Format("Symphony assembly {0} could not be loaded. The error was {1}",symphonyConductorPath,e.Message)
+					MessageBox.Show(errorMessage)
+					mreturn
+				end
+				endtry
+				
+				;;Get a handle on the Symphony.Conductor.Static.ThreadSafe clas
+				data threadSafeClass, @Type, symphonyConductorAssembly.GetType("Symphony.Conductor.Static.ThreadSafe")
+				if (threadSafeClass!=^null)
+				begin
+					;;And it's AnchorToUiThread static method
+					data anchorToUiThreadMethod, @MethodInfo, threadSafeClass.GetMethod("AnchorToUIThread")
+					if (anchorToUiThreadMethod!=^null)
+					begin
+						;;Call the method
+						try
+						begin
+							anchorToUiThreadMethod.Invoke(^null,^null)
+						end
+						catch (e, @Exception)
+						begin
+							data errorMessage, String, String.Format("Failed to call Symphony.Conductor.Static.ThreadSafe.AnchorToUIThread. The error was {1}",e.Message)
+							MessageBox.Show(errorMessage)
+							mreturn
+						end
+						endtry
+					end
+				end
+			end
+			
+			;;---------------------------------------------------------------------------------
+
+;			;;TODO: Need to figure out why this is here???
+;			;;Force System.Windows.Interactivity to load
+;			data swe, @Assembly, Assembly.LoadFrom("C:\Program Files (x86)\Microsoft SDKs\Expression\Blend\.NETFramework\v4.0\Libraries\System.Windows.Interactivity.dll")
+;
+			;;Activate the assembly containing the programs code
+			data asm, @Assembly
+			try
+			begin
+				asm = Assembly.LoadFrom(mAssemblyPath)
+			end
+			catch (e, @Exception)
+			begin
+				MessageBox.Show(String.Format("Program assembly {0} could not be loaded. The error was {1}",mAssemblyPath,e.Message))
+				App.Current.Shutdown()
+				mreturn
+			end
+			endtry
+			
+			;;Load the programs main view
+			data viewFullTypeName,	String,		string.Format("{0}, {1}",mViewTypeName,asm.FullName)
+			data viewType,			@Type,		Type.GetType(viewFullTypeName)
+			view = (@IMenuView)Activator.CreateInstance(viewType)
+
+			;;Load the programs main ViewModel
+			data vmConstructorArgs,	[#]@Object,	new Object[#] {view}
+			viewModel = (@IMenuViewModel)Activator.CreateInstance(view.ViewModelType,vmConstructorArgs)
+
+			;;Tell the app it is being started. This needs to happen early because as soon as we
+			;;put the view into a container it may start trying to do data binding, so we must give
+			;;the ViewModel chance to do any required inintialization before that happens.
+			try
+			begin
+				data initErrorMessage, string
+				if (!viewModel.Initializing(initErrorMessage))
+				begin
+					MessageBox.Show(initErrorMessage)
+					App.Current.Shutdown()
+					mreturn
+				end
+			end
+			catch (e, @Exception)
+			begin
+				MessageBox.Show(e.Message)
+				App.Current.Shutdown()
+				mreturn
+			end
+			endtry
+			
+			;;Does the view support being launched as a window?
+			data menuWindowVM, @IMenuWindow, ^as((@Object)view,@IMenuWindow)
+			
+			;;If we're in Window mode and the view expresses a preference about size then override the window size
+			if (menuWindowVM!=^null)
+			begin
+				if (menuWindowVM.InitialWidth > 0)
+					mViewWidth = menuWindowVM.InitialWidth
+				if (menuWindowVM.InitialHeight > 0)
+					mViewHeight = menuWindowVM.InitialHeight
+			end
+			
+			this.Width = mViewWidth
+			this.Height = mViewHeight
+			
+			;;Get the Win32 handle of the WPF window and save it for later
+			hostWindowHandle = new WindowInteropHelper(this).EnsureHandle()
+
+			;;Put the programs main view into the WPF window
+			this.Content = view
+			
+			;;The view will just be in the window we already created
+			this.Title = view.ProgramDescription
+
+			;TODO: For now we need to do this, but better would be to catch the window close event and close the program
+			;Another problem is that it is still possible to kill the Window via the Windows TaskBar preview, which causes chaos right now!
+			DisableCloseBox(hostWindowHandle)
+			
+			;;Start listening for the IMenuViewModel events from the program
+			addhandler(viewModel.Close,hostedAppRequestsClose)
+			addhandler(viewModel.FatalError,hostedAppReportsFatalError)
+
+		endmethod
+
+.region "Handle Hosted Program Events"
+		
+		;;This is an event handler for the ViewModels Close event
+		
+		private method hostedAppRequestsClose, void
+			endparams
+		proc
+			viewModel.Closing()
+			App.Current.Shutdown()
+		endmethod
+		
+		;;This is an event handler for the ViewModels FatalError event
+		
+		private method hostedAppReportsFatalError, void
+			required in errorMessage, String
+			endparams
+		proc
+			MessageBox.Show(errorMessage)
+			App.Current.Shutdown()
+		endmethod
+		
+.endregion
+		
+.region "WIN32 stuff"
+		
+		public const GWL_STYLE,		int, -16
+		public const WS_POPUP,		uint, 2147483648
+		public const WS_CHILD,		uint, 1073741824
+		public const WS_CAPTION,	uint, 12582912
+		public const WS_SYSMENU,	uint, 524288
+		public const WS_THICKFRAME, uint, 262144
+		
+		{DllImport("user32.dll", SetLastError = true)}
+		public static method SetParent, IntPtr
+			hWndChild, IntPtr 
+			hWndNewParent, IntPtr 
+			endparams
+		proc
+		endmethod
+		
+		{DllImport("user32.dll", SetLastError = true)}
+		public  static method MoveWindow, boolean
+			hWnd, IntPtr 
+			X, int 
+			Y, int 
+			nWidth, int 
+			nHeight, int 
+			bRepaint, boolean 
+			endparams
+		proc
+		endmethod
+		
+		{DllImport("user32.dll")}
+		public static method SetWindowLong, int
+			hWnd, IntPtr 
+			nIndex, int 
+			dwNewLong, int 
+			endparams
+		proc
+		endmethod
+		
+		{DllImport("user32.dll", SetLastError = true)}
+		public static method GetWindowLong, int
+			hWnd, IntPtr 
+			nIndex, int 
+			endparams
+		proc
+		endmethod
+		
+		private static method ConfigureWindows, void
+			width, double
+			height, double
+			wpfWindowHandle, IntPtr
+			winFormsControlHandle, IntPtr
+		proc
+			;;Remove WS_POPUP, WS_CAPTION and WS_THICKFRAME, and add WS_CHILD from the WPF window 
+			data style, int, GetWindowLong(wpfWindowHandle, GWL_STYLE)
+			style = (((style & ~(WS_POPUP)) & ~(WS_CAPTION)) & ~(WS_THICKFRAME)) | WS_CHILD
+			SetWindowLong(wpfWindowHandle, GWL_STYLE, style)
+			;;Position the WPF window
+			MoveWindow(wpfWindowHandle,0,0,(int)width,(int)height,true)
+			;;Make the WinForms control the parent of the WPF window
+			SetParent(wpfWindowHandle, winFormsControlHandle)
+		endmethod
+		
+		private static method DisableCloseBox, void
+			wpfWindowHandle, IntPtr
+			endparams
+		proc
+			;;Remove WS_SYSMENU from the WPF window 
+			data style, int, GetWindowLong(wpfWindowHandle, GWL_STYLE)
+			style = (style & ~(WS_SYSMENU))
+			SetWindowLong(wpfWindowHandle, GWL_STYLE, style)
+		endmethod
+		
+		private static method ResizeWindow, void
+			newWidth, double
+			newHeight, double
+			wpfWindowHandle, IntPtr
+		proc
+			MoveWindow(wpfWindowHandle,0,0,(int)newWidth,(int)newHeight,true)
+		endmethod
+		
+.endregion
+
+	endclass
+
+endnamespace
+

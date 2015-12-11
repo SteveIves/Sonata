@@ -1,0 +1,198 @@
+;;*****************************************************************************
+;;
+;; Title:       PresidentsViewModel.dbl
+;;
+;; Type:        Class
+;;
+;; Description: Main ViewModel for Browse US Presidents example program
+;;
+;; Date:        18th February 2014
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;              http://www.synergex.com
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2014, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+
+import System
+import System.Collections.ObjectModel
+import System.ComponentModel
+import System.Windows
+import System.Windows.Input
+import Sonata.Interface
+import Sonata.Interface.Tools
+import SonataExamplePrograms.Model
+
+namespace SonataExamplePrograms.ViewModel
+
+	public class PresidentsViewModel extends ViewModelBase implements IMenuSuspend
+
+		private mBusinessLogic, @PresidentsBusinessLogic
+		private mCurrentState, String, "ListState"
+		
+		public method PresidentsViewModel
+			required in aView, @IMenuView
+			endparams
+			parent(aView)
+		proc
+			
+		endmethod
+
+.region "Bindable properties"
+
+		private mPresidents, @ObservableCollection<President>
+
+		public property Presidents, @ObservableCollection<President>
+			method get
+			proc
+				if (mPresidents == ^null)
+					mPresidents = mBusinessLogic.GetPresidents()
+				mreturn mPresidents
+			endmethod
+			method set
+			proc
+				mPresidents = value
+				NotifyPropertyChanged("Presidents")
+			endmethod
+		endproperty
+	
+		private mSelectedPresident, @President
+
+		public property SelectedPresident, @President
+			method get
+			proc
+				mreturn mSelectedPresident
+			endmethod
+			method set
+			proc
+				mSelectedPresident = value
+				NotifyPropertyChanged("SelectedPresident")
+			endmethod
+		endproperty
+
+.endregion
+
+.region "ViewCommand"
+		
+		private mViewCommand, @ICommand
+		
+		public property ViewCommand, @ICommand
+			method get
+			proc
+				if (mViewCommand==^null)
+				begin
+					lambda doViewCommand(param)
+					begin
+						VisualStateManager.GoToElementState((@FrameworkElement)View,"FormState",true)
+						mCurrentState = "FormState"
+					end
+					lambda canDoViewCommand(param)
+					begin
+						mreturn ((mCurrentState=="ListState") && (mSelectedPresident!=^null))
+					end
+					mViewCommand = new RelayCommand(doViewCommand,canDoViewCommand)
+				end
+				mreturn mViewCommand
+			endmethod
+		endproperty
+		
+.endregion
+
+.region "BackCommand"
+
+		private mBackCommand, @ICommand
+		
+		public property BackCommand, @ICommand
+			method get
+			proc
+				if (mBackCommand==^null)
+				begin
+					lambda doBackCommand(param)
+					begin
+						VisualStateManager.GoToElementState((@FrameworkElement)View,"ListState",true)
+						mCurrentState = "ListState"
+					end
+					lambda canDoBackCommand(param)
+					begin
+						mreturn (mCurrentState=="FormState")
+					end
+					mBackCommand = new RelayCommand(doBackCommand,canDoBackCommand)
+				end
+				mreturn mBackCommand
+			endmethod
+		endproperty
+		
+.endregion
+
+.region "IMenuViewModel Overrides"
+
+		;;; <summary>
+		;;; Called by Sonata when a brand new program instance has been created.
+		;;; </summary>
+		public override method Initializing, boolean
+			required out errorMessage, String
+			endparams
+		proc
+			;;Initialize our environment
+			mBusinessLogic = new PresidentsBusinessLogic()
+			mreturn true
+		endmethod
+		
+		;;; <summary>
+		;;; Called by Sonata when this program instance is about to be deleted.
+		;;; </summary>
+		public override method Closing, void
+			endparams
+		proc
+			;;Clean up
+			mPresidents.Clear()
+			mBusinessLogic = ^null
+		endmethod
+		
+.endregion
+
+.region "IMenuSuspend"
+
+		public method Suspending, void
+			endparams
+		proc
+			;;Nothing to do in this app
+		endmethod
+		
+		public method Resuming, void
+			endparams
+		proc
+			;;Nothing to do in this app
+		endmethod
+
+.endregion
+
+	endclass
+
+endnamespace

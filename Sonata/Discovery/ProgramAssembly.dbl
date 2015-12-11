@@ -1,0 +1,166 @@
+;;*****************************************************************************
+;;
+;; Title:       ProgramAssembly.dbl
+;;
+;; Type:        Class
+;;
+;; Description: Represents an assembly declared as containing launchable programs
+;;
+;; Date:        14th February 2014
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;              http://www.synergex.com
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2014, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+
+import System
+import System.Collections.ObjectModel
+import System.ComponentModel
+import System.Reflection
+import System.Resources
+import Sonata.Interface
+import Sonata.Interface.Tools
+
+namespace Sonata.Discovery
+
+	;;; <summary>
+	;;; This class represents an external assembly that has been declared to Sonata as containing
+	;;; "programs" (Views and ViewModels) that can be hosted within Sonata. We will look for hostable
+	;;; Views by using Reflection to locate any classes within the assambly that implement the IMenuView
+	;;; interface.
+	;;; </summary>
+
+	public class ProgramAssembly extends NotifyPropertyChangedProvider
+	
+		private mAssemblyPath, String
+		private mPrograms, @ObservableCollection<HostableWpfView>
+
+		;;This constructor is here to facilitate serialization.
+		;;It should not be used by Sonata
+		public method ProgramAssembly
+			endparams
+		proc
+			
+		endmethod
+
+		public method ProgramAssembly
+			required in aAssemblyPath, String
+			endparams
+		proc
+			mAssemblyPath = aAssemblyPath
+			mPrograms = new ObservableCollection<HostableWpfView>()
+
+			;;If there are Symphony assemblies in the same path as the program assembly then open them
+			data assemblyFolder, String, System.IO.Path.GetDirectoryName(mAssemblyPath)
+
+			tryLoadAssembly(assemblyFolder,"SymphonyAdapter.dll")
+			tryLoadAssembly(assemblyFolder,"SymphonyConductor.dll")
+			tryLoadAssembly(assemblyFolder,"SymphonyCore.dll")
+			tryLoadAssembly(assemblyFolder,"SymphonyCrescendo.dll")
+			
+			;;Open the assembly
+			data asm, @Assembly, Assembly.LoadFrom(mAssemblyPath)
+
+			;;Look through all the types in the assembly searching for types that
+			;;implement IMenuView, and add a Program entry for each one that we find.
+			
+			data discoveredType, @Type
+			foreach discoveredType in asm.GetTypes()
+			begin
+				data discoveredInterfaces, [#]@Type, discoveredType.GetInterfaces()
+				if (discoveredInterfaces.Length)
+				begin
+					;;The type we found implements at least one interface
+					data interfaceType, @Type
+					foreach interfaceType in discoveredInterfaces
+					begin
+						;;If the type implements IMenuView and has a default constructor then we can launch it
+						if (interfaceType==^typeof(IMenuView)&&(discoveredType.GetConstructor(Type.EmptyTypes)!=^null))
+						begin
+							data view, @IMenuView, (@IMenuView)Activator.CreateInstance(discoveredType)
+							mPrograms.Add(new HostableWpfView(view.ProgramName,view.ProgramDescription,view.SubSystemName,discoveredType.ToString()))
+							exitloop
+						end
+					end
+				end
+			end
+
+		endmethod
+
+		private method tryLoadAssembly, void
+			required in programPath, String
+			required in assemblyToOpen, String
+			endparams
+		proc
+			;;If there are Symphony assemblies in the same path as the program assembly then open them
+			data tmpAssembly, @Assembly
+			data assemblyPath, String, String.Format("{0}\{1}",programPath,assemblyToOpen)
+			if (System.IO.File.Exists(assemblyPath))
+			begin
+				;;Yes, let's try to load it
+				try
+				begin
+					tmpAssembly = Assembly.LoadFrom(assemblyPath)
+				end
+				catch (e, @Exception)
+				begin
+					nop
+				end
+				endtry
+			end
+		endmethod
+
+		public property AssemblyPath, String
+			method get
+			proc
+				mreturn mAssemblyPath
+			endmethod
+			method set
+			proc
+				mAssemblyPath = value
+				NotifyPropertyChanged("Path")
+			endmethod
+		endproperty
+
+		public property Programs, @ObservableCollection<HostableWpfView>
+			method get
+			proc
+				mreturn mPrograms
+			endmethod
+			method set
+			proc
+				mPrograms = value
+				NotifyPropertyChanged("Programs")
+			endmethod
+		endproperty
+
+	endclass
+
+endnamespace

@@ -1,0 +1,144 @@
+;;*****************************************************************************
+;;
+;; Title:       App.xaml.dbl
+;;
+;; Type:        Class (Application Definition)
+;;
+;; Description: Application launch code
+;;
+;; Date:        14th February 2014
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;              http://www.synergex.com
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2014, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+
+import System
+import System.Configuration
+import System.Data
+import System.Diagnostics
+import System.Globalization
+import System.IO
+import System.Threading
+import System.Windows
+import System.Windows.Markup
+import System.Windows.Media.Imaging
+import System.Xml
+
+namespace Sonata
+
+	public partial class App extends Application
+		
+		private static appMutex, @Mutex, new Mutex(true,"{404EB095-064E-4102-8884-04F211DFA837}")
+
+		public method App
+			endparams
+		proc
+
+			if (appMutex.WaitOne(TimeSpan.Zero,true)) then
+			begin
+				;;Splash screen
+				if (Properties.Settings.Default.ShowSplashScreen)
+				begin
+					data ss	,@SplashScreen, new SplashScreen("\Media\SplashScreen.png")
+					ss.Show(true)
+					System.Threading.Thread.Sleep(500)
+				end
+				
+				;;Ensure data bound strings are formatted with the current system culture
+				FrameworkElement.LanguageProperty.OverrideMetadata(^typeof(FrameworkElement), new FrameworkPropertyMetadata(XmlLanguage.GetLanguage(CultureInfo.CurrentCulture.IetfLanguageTag)))
+			end
+			else
+			begin
+				MessageBox.Show("Another instance of Sonata is already running!")
+				this.Shutdown()
+			end
+
+		endmethod
+
+		;;; <summary>
+		;;; Occurs when the user ends the Windows session by logging off or shutting down the operating system.
+		;;; </summary>
+		private method App_SessionEnding, void
+			sender, @Object
+			e, @SessionEndingCancelEventArgs
+			endparams
+		proc
+			;TODO: Cancel the shutdown if there are any programs running critical code.
+			;e.Cancel = true
+		endmethod
+
+		public static method FindUiElement, @DependencyObject
+			local_parent, @DependencyObject 
+			childName, string 
+			endparams
+		proc
+			;;  Confirm parent and childName are valid. 
+			if (local_parent == ^null)
+				mreturn ^null
+				
+			if (string.IsNullOrEmpty(childName))
+				mreturn ^null
+				
+			data child, @Object, ^null
+			
+			foreach child in LogicalTreeHelper.GetChildren(local_parent)
+			begin
+				;;  If the child is not of the request child type child
+				data childType, @DependencyObject, ^as(child, @DependencyObject)
+				if (childType == ^null) then
+					nextloop
+				else
+				begin
+					data fe, @FrameworkElement, ^as(childType, FrameworkElement)
+					;;  If the child's name is set for search
+					if ((fe != ^null) && (fe.Name == childName)) then
+					begin
+						;;  if the child's name is of the request name
+						exitloop
+					end
+					else
+					begin
+						;;  recursively drill down the tree
+						child = FindUiElement(childType, childName)
+						;;  If the child is found, break so we do not overwrite the found child. 
+						if (child != ^null)
+							exitloop						
+					end
+				end
+			end
+			
+			mreturn ^as(child,DependencyObject)
+			
+		endmethod
+		
+	endclass
+
+endnamespace

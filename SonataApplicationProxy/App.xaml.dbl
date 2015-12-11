@@ -1,0 +1,140 @@
+;;*****************************************************************************
+;;
+;; Title:       App.xaml.dbl
+;;
+;; Type:        Class (Application Definition)
+;;
+;; Description: Application launch code
+;;
+;; Date:        14th February 2014
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;              http://www.synergex.com
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2014, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+
+import System
+import System.Windows
+import System.Data
+import System.IO
+import System.Xml
+import System.Configuration
+import System.Diagnostics
+import Sonata.Interface
+
+namespace SonataApplicationProxy
+
+	public partial class App extends System.Windows.Application
+		
+		;;Saved command-line parameters
+		private mAssemblyPath,					String
+		private mViewTypeName,					String
+		private mViewWidth,						double
+		private mViewHeight,					double
+
+		protected override method OnStartup, void
+			ea, @StartupEventArgs
+			endparams
+		proc
+
+			data ok, boolean, true
+			data errorMessage, String
+
+			;;Need these parameters from the command line
+			;;	Assembly path
+			;;	View type name (within assembly)
+			;;	View width
+			;;	View height
+
+			;;Make sure we have enough command-line parameters
+
+			if (ea.Args.Length != 4)
+			begin
+				errorMessage = "Incorrect number of command-line parameters. Usage: SonataApplicationProxy <assembly> <viewTypeName> <width> <height>"
+				ok = false
+			end
+
+			;;Parameter 1 should be a path to an assembly
+			if (ok)
+			begin
+				mAssemblyPath = ea.Args[1]
+				if (!File.Exists(mAssemblyPath))
+				begin
+					errorMessage = string.Format("Assembly {0} not found!",ea.Args[1])
+					ok = false
+				end
+			end
+
+			;;Parameter 2 should be a type name within the assembly
+			if (ok)
+			begin
+				mViewTypeName = ea.Args[2]
+				if (string.IsNullOrWhiteSpace(mViewTypeName))
+				begin
+					errorMessage = string.Format("Invalid main view type {0}!",ea.Args[2])
+					ok = false
+				end
+			end
+			
+			;;Parameter 3 should be a numeric width
+			if (ok)
+			begin
+				if (!double.TryParse(ea.Args[3],mViewWidth))
+				begin
+					errorMessage = string.Format("Invalid width {0}!",ea.Args[3])
+					ok = false
+				end
+			end
+			
+			;;Parameter 4 should be a numeric height
+			if (ok)
+			begin
+				if (!double.TryParse(ea.Args[4],mViewHeight))
+				begin
+					errorMessage = string.Format("Invalid height {0}!",ea.Args[4])
+					ok = false
+				end
+			end
+
+			if (!ok)
+			begin
+				MessageBox.Show(errorMessage)
+				Application.Current.Shutdown()
+				mreturn
+			end
+
+			data ui, @MainWindow, new MainWindow(mAssemblyPath,mViewTypeName,mViewWidth,mViewHeight)
+			ui.Show()
+			
+		endmethod
+
+	endclass
+
+endnamespace

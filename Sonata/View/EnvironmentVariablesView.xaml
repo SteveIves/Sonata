@@ -1,0 +1,90 @@
+﻿<!--
+    Title:          EnvironmentVariablesView.xaml
+
+    Type:           WPF View (UserControl)
+
+    Description:    View for managing environment variables
+
+    Date:           14th February 2014
+
+    Author:         Steve Ives, Synergex Professional Services Group
+                    http://www.synergex.com
+
+    **************************************************************************
+
+    Copyright (c) 2014, Synergex International, Inc.
+    All rights reserved.
+
+    Redistribution and use in source and binary forms, with or without
+    modification, are permitted provided that the following conditions are met:
+
+    * Redistributions of source code must retain the above copyright notice,
+      this list of conditions and the following disclaimer.
+
+    * Redistributions in binary form must reproduce the above copyright notice,
+      this list of conditions and the following disclaimer in the documentation
+      and/or other materials provided with the distribution.
+
+    THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+    AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+    IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+    ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+    LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+    CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+    SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+    INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+    CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+    ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+    POSSIBILITY OF SUCH DAMAGE.
+
+    **************************************************************************  
+-->
+
+<Window x:Class="Sonata.View.EnvironmentVariablesView"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+        mc:Ignorable="d" 
+        d:DesignHeight="600" d:DesignWidth="800"
+        Height="600" Width="800"
+        Title="Environment Variables"
+        Background="{Binding BackgroundColor}"
+        WindowStyle="SingleBorderWindow"
+        ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner" 
+        ShowInTaskbar="False"
+        Icon="/Sonata;component/Sonata.ico"
+        Loaded="Window_Loaded">
+
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="pack://application:,,,/Sonata;component/Resources/MenuStyles.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Window.Resources>
+    
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <DataGrid Grid.Row="0"
+                  ItemsSource="{Binding EnvironmentVariables, Mode=TwoWay}"
+                  SelectedItem="{Binding SelectedEnvironmentVariable, Mode=TwoWay}"
+                  Margin="10,10,10,0" Style="{StaticResource EditGrid}">
+            <DataGrid.Columns>
+                <DataGridTextColumn Width="1*" Header="Name" Binding="{Binding Name}" />
+                <DataGridTextColumn Width="3*" Header="Value" Binding="{Binding Value}" />
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <StackPanel Grid.Row="1" HorizontalAlignment="Right" Orientation="Horizontal" Margin="10">
+            <Button Style="{StaticResource AppButton}" Content="OK" Command="{Binding SaveAndCloseCommand}" CommandParameter="true" />
+            <Button Style="{StaticResource AppButton}" Content="Cancel" Command="{Binding SaveAndCloseCommand}" CommandParameter="false" />
+        </StackPanel>
+
+    </Grid>
+</Window>

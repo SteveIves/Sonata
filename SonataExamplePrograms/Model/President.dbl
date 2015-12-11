@@ -1,0 +1,173 @@
+;;*****************************************************************************
+;;
+;; Title:       President.dbl
+;;
+;; Type:        Class
+;;
+;; Description: Represents a President
+;;
+;; Date:        18th February 2014
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;              http://www.synergex.com
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2014, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+
+import System
+import System.ComponentModel
+import Sonata.Interface.Tools
+
+namespace SonataExamplePrograms.Model
+
+	public enum Party
+		Independent
+		Democratic
+		Republican
+		DemocraticRepublican
+		Federalist
+		Whig
+	endenum
+
+	public class President extends NotifyPropertyChangedProvider
+	
+		private mNumber,		int
+		private mFullName,		String
+		private mParty,			Party
+		private mTookOffice,	@Nullable<DateTime>
+		private mLeftOffice,	@Nullable<DateTime>
+		
+		public method President
+			endparams
+		proc
+			mFullName = String.Empty
+		endmethod
+
+		public method President
+			required in aNumber, int
+			required in aFullName, String
+			required in aParty, Party
+			endparams
+		proc
+			mNumber = aNumber
+			mFullName = aFullName
+			mParty = aParty
+		endmethod
+
+		public method President
+			required in aNumber, int
+			required in aFullName, String
+			required in aParty, Party
+			required in aTookOffice, DateTime
+			endparams
+		proc
+			mNumber = aNumber
+			mFullName = aFullName
+			mParty = aParty
+			mTookOffice = aTookOffice
+		endmethod
+		
+		public method President
+			required in aNumber, int
+			required in aFullName, String
+			required in aParty, Party
+			required in aTookOffice, DateTime
+			required in aLeftOffice, DateTime
+			endparams
+		proc
+			mNumber = aNumber
+			mFullName = aFullName
+			mParty = aParty
+			mTookOffice = aTookOffice
+			mLeftOffice = aLeftOffice
+		endmethod
+		
+		public property Number, int
+			method get
+			proc
+				mreturn mNumber
+			endmethod
+			method set
+			proc
+				mNumber = value
+				NotifyPropertyChanged("Number")
+			endmethod
+		endproperty
+
+		public property FullName, String
+			method get
+			proc
+				mreturn mFullName
+			endmethod
+			method set
+			proc
+				mFullName = value
+				NotifyPropertyChanged("FullName")
+			endmethod
+		endproperty
+
+		public property Party, Party
+			method get
+			proc
+				mreturn mParty
+			endmethod
+			method set
+			proc
+				mParty = value
+				NotifyPropertyChanged("Party")
+			endmethod
+		endproperty
+
+		public property TookOffice, @Nullable<DateTime>
+			method get
+			proc
+				mreturn mTookOffice
+			endmethod
+			method set
+			proc
+				mTookOffice = value
+				NotifyPropertyChanged("TookOffice")
+			endmethod
+		endproperty
+		
+		public property LeftOffice, @Nullable<DateTime>
+			method get
+			proc
+				mreturn mLeftOffice
+			endmethod
+			method set
+			proc
+				mLeftOffice = value
+				NotifyPropertyChanged("LeftOffice")
+			endmethod
+		endproperty
+		
+	endclass
+
+endnamespace

@@ -1,0 +1,629 @@
+;;*****************************************************************************
+;;
+;; Title:       ProgramProxy.dbl
+;;
+;; Type:        Class
+;;
+;; Description: Represents a hosted program
+;;
+;; Date:        14th February 2014
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;              http://www.synergex.com
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2014, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+
+import System
+import System.AddIn.Pipeline
+import System.ComponentModel
+import System.Reflection
+import System.Runtime.InteropServices
+import System.Threading
+import System.Threading.Tasks
+import System.Windows
+import System.Windows.Interop
+import System.Windows.Forms.Integration
+import System.Windows.Threading
+import Sonata.Interface
+
+namespace Sonata.Environment
+
+	public class ProgramProxy extends MarshalByRefObject
+
+		;;Saved constructor parameters
+		private mAssemblyPath,					String
+		private mViewTypeName,					String
+		private mHostSupport,					@HostSupport
+		private mViewWidth,						double
+		private mViewHeight,					double
+		private mMenuAllowsSuspend,				boolean
+		private mDisplayMode,					DisplayMode
+		private mWinFormsControlHandle,			IntPtr
+		
+		private view,							@IMenuView
+		private viewModel,						@IMenuViewModel
+		private hostWindow,						@Window
+		private hostWindowHandle,				IntPtr
+		private suspendable,					boolean
+		private myDispatcher,					@Dispatcher
+		
+.region "Constructor"
+
+		public method ProgramProxy
+			required in aAssemblyPath,			String
+			required in aViewTypeName,			String
+			required in aHostSupport,			@HostSupport
+			required in aViewWidth,				double
+			required in aViewHeight,			double
+			required in aMenuAllowsSuspend,		boolean
+			required in aDisplayMode,			DisplayMode 
+			required in aWinFormsControlHandle,	IntPtr
+			endparams
+		proc
+			mAssemblyPath = aAssemblyPath
+			mViewTypeName = aViewTypeName
+			mHostSupport = aHostSupport
+			mViewWidth = aViewWidth
+			mViewHeight = aViewHeight
+			mMenuAllowsSuspend = aMenuAllowsSuspend
+			mDisplayMode = aDisplayMode
+			mWinFormsControlHandle = aWinFormsControlHandle
+			
+		endmethod
+
+.endregion
+
+		public override method InitializeLifetimeService, @object
+		proc
+			mreturn ^null
+		endmethod
+
+.region "Start the hosted program"
+
+		public method StartApplication, boolean
+			required out errorMessageOut, String
+			endparams
+		proc
+			data errorMessage, @string
+			data taskCompleter, @TaskCompletionSource<Boolean>, new TaskCompletionSource<Boolean>()
+
+			lambda newUIThread(obj)
+			begin
+				doStartUI(taskCompleter, errorMessage)
+			end
+
+			data newThread, @Thread, new Thread(newUIThread)
+			newThread.SetApartmentState(ApartmentState.STA)
+			newThread.Start()
+
+			;;Wait for the thread to get a result from the lambda
+			taskCompleter.Task.Wait()
+
+			errorMessageOut = errorMessage
+
+			mreturn taskCompleter.Task.Result
+
+		endmethod
+
+		;;TOD: Had to call this method from the lambda to work around a 10.1.1c pre-release compiler bug.
+		;;When fixed just move the code from the procedure division unchanged into the body of the lambda
+		private method doStartUI, void
+			required inout taskCompleter, @TaskCompletionSource<Boolean>
+			required inout errorMessage, String
+			endparams
+		proc
+			
+			;;Is there a SymphonyConductor assembly in the same folder as the program assembly?
+			data assemblyFolder, String, System.IO.Path.GetDirectoryName(mAssemblyPath)
+			
+			tryLoadAssembly(assemblyFolder,"SymphonyAdapter.dll")
+			tryLoadAssembly(assemblyFolder,"SymphonyConductor.dll")
+			tryLoadAssembly(assemblyFolder,"SymphonyCore.dll")
+			tryLoadAssembly(assemblyFolder,"SymphonyCrescendo.dll")
+			
+			;;---------------------------------------------------------------------------------
+
+			;;This logic used to be in the constructor but I had issues with how to return
+			;;exceptions at that time, because we can't throw from here.
+			
+			errorMessage = String.Empty
+			
+			;;Activate the assembly containing the programs code
+			data asm, @Assembly
+			try
+			begin
+				asm = Assembly.LoadFrom(mAssemblyPath)
+			end
+			catch (e, @Exception)
+			begin
+				errorMessage = String.Format("Program assembly {0} could not be loaded. The error was {1}",mAssemblyPath,e.Message)
+				taskCompleter.SetResult(false)
+				mreturn
+			end
+			endtry
+			
+			;;Load the programs main view
+			data viewType, @Type, asm.GetType(mViewTypeName)
+			view = (@IMenuView)Activator.CreateInstance(viewType)
+			
+			;;Load the programs main ViewModel
+			data vmConstructorArgs,	[#]@Object,	new Object[#] {view}
+			viewModel = (@IMenuViewModel)Activator.CreateInstance(view.ViewModelType,vmConstructorArgs)
+
+			;;Set the View's DataContext to the ViewModel
+			((@FrameworkElement)view).DataContext = viewModel
+						
+			;;Tell the app it is being started. This needs to happen early because as soon as we
+			;;put the view into a container it may start trying to do data binding, so we must give
+			;;the ViewModel chance to do any required inintialization before that happens.
+			try
+			begin
+				data initErrorMessage, string
+				if (viewModel.Initializing(initErrorMessage)) then
+					State = ProgramState.Running
+				else
+				begin
+					errorMessage = initErrorMessage
+					taskCompleter.SetResult(false)
+					mreturn
+				end
+			end
+			catch (e, @Exception)
+			begin
+				errorMessage = e.Message
+				taskCompleter.SetResult(false)
+				mreturn
+			end
+			endtry
+			
+			;;Is the program suspendable?
+			if (mMenuAllowsSuspend)
+			begin
+				data suspendableVM, @IMenuSuspend, ^as((@Object)viewModel,@IMenuSuspend)
+				suspendable = (suspendableVM!=^null)
+			end
+			
+			;;Create a WPF Window to host the program
+			hostWindow = new Window()
+			
+			;;If we're displaying as a tab then remove the host window borders and resize handles
+			if (mDisplayMode==DisplayMode.Tab)
+			begin
+				hostWindow.WindowStyle = System.Windows.WindowStyle.None
+				hostWindow.ResizeMode = System.Windows.ResizeMode.NoResize
+			end
+			
+			;;If we're in Window mode and the view expresses a preference about the window attributes
+			;;then implement those preferences
+			if (mDisplayMode==DisplayMode.Window) 
+			begin
+				data menuWindowVM, @IMenuWindow, ^as((@Object)view,@IMenuWindow)
+				if (menuWindowVM!=^null)
+				begin
+					if (menuWindowVM.InitialWidth > 0)
+						mViewWidth = menuWindowVM.InitialWidth
+					if (menuWindowVM.InitialHeight > 0)
+						mViewHeight = menuWindowVM.InitialHeight
+				end
+			end
+			
+			hostWindow.Width = mViewWidth
+			hostWindow.Height = mViewHeight
+			
+			;;Get the Win32 handle of the WPF window and save it for later resize operations
+			hostWindowHandle = new WindowInteropHelper(hostWindow).EnsureHandle()
+			
+			;;Put the programs main view into the WPF window
+			hostWindow.Content = view
+			
+			if (mDisplayMode==DisplayMode.Tab) then
+			begin
+				;;Embed the WPF window inside the WinForms control that Sonata provided
+				ConfigureWindows(mViewWidth,mViewHeight,hostWindowHandle,mWinFormsControlHandle)
+			end
+			else
+			begin
+				;;The view will just be in the window we already created
+				hostWindow.Title = view.ProgramDescription
+				;TODO: For now we need to do this, but better would be to catch the window close event and close the program
+				;Another problem is that it is still possible to kill the Window via the Windows TaskBar preview, which causes chaos right now!
+				DisableCloseBox(hostWindowHandle)
+			end
+
+			;;Create a new WPF Application for the new program
+			data myApplication, @Application,  new Application()
+
+			;;Set the new applications main window
+			myApplication.MainWindow = hostWindow
+
+			;;Make the window visible
+			hostWindow.Show()
+			
+			myDispatcher = Dispatcher.CurrentDispatcher
+			
+			;;Start listening for the IMenuViewModel events from the program
+			addhandler(viewModel.Close,hostedAppRequestsClose)
+			addhandler(viewModel.FatalError,hostedAppReportsFatalError)
+
+			;;If the ViewModel implements IMenuCriticalSection then start listening for the PerformingCriticalSection event
+			data criticalSectionViewModel, @IMenuCriticalSection, ^as((@Object)viewModel,@IMenuCriticalSection)
+			if (criticalSectionViewModel!=^null)
+				addhandler(criticalSectionViewModel.ProcessingCriticalSection,hostedAppCriticalSection)
+			
+			taskCompleter.SetResult(true)
+			
+			myApplication.Run()
+
+			;;App.Run() blocks until the WPF application is shutdown. The following code runs
+			;;after the WPF application is shutdown by the DestroyWindow() method below
+
+			GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced, true)
+			while(System.Runtime.InteropServices.Marshal.AreComObjectsAvailableForCleanup())
+			begin
+				System.Runtime.InteropServices.Marshal.CleanupUnusedObjectsInCurrentContext()
+				GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced, true)
+			end
+
+		endmethod
+
+		private method tryLoadAssembly, void
+			required in programPath, String
+			required in assemblyToOpen, String
+			endparams
+		proc
+			;;If there are Symphony assemblies in the same path as the program assembly then open them
+			data tmpAssembly, @Assembly
+			data assemblyPath, String, String.Format("{0}\{1}",programPath,assemblyToOpen)
+			if (System.IO.File.Exists(assemblyPath))
+			begin
+				;;Yes, let's try to load it
+				try
+				begin
+					tmpAssembly = Assembly.LoadFrom(assemblyPath)
+				end
+				catch (e, @Exception)
+				begin
+					nop
+				end
+				endtry
+			end
+		endmethod
+		
+
+.endregion
+
+.region "Handle Hosted Program Events"
+
+		;;This is an event handler for the ViewModels Close event
+
+		private method hostedAppRequestsClose, void
+			endparams
+		proc
+			;;Tell Sonata to close the current program. This will cause Sonata to call the
+			;;programs IMenuViewModel.Close method
+			mHostSupport.Close(this)
+		endmethod
+		
+		;;This is an event handler for the ViewModels FatalError event
+
+		private method hostedAppReportsFatalError, void
+			required in errorMessage, String
+			endparams
+		proc
+			;;Tell the program to close
+			try
+			begin
+				viewModel.Closing()
+			end
+			catch (e)
+			begin
+				;;Ignore any errors ... the code already failed!
+				nop
+			end
+			endtry
+			;;Tell Sonata the app had a fatal error
+			mHostSupport.FatalError(this,errorMessage)
+		endmethod
+		
+		;;This is an event handler for the ViewModels ProcessingCriticalSection event
+		
+		private method hostedAppCriticalSection, void
+			required in inCriticalSection, boolean
+			endparams
+		proc
+			;;Tell Sonata the program is performing critical processing
+			mHostSupport.CriticalSection(this,inCriticalSection)
+		endmethod
+
+.endregion
+
+.region "Properties exposing information about the program to Sonata"
+
+		public property Name, String
+			method get
+			proc
+				mreturn view.ProgramName
+			endmethod
+		endproperty
+		
+		public property Description, String
+			method get
+			proc
+				mreturn view.ProgramDescription
+			endmethod
+		endproperty
+		
+		public property IsSuspendable, boolean
+			method get
+			proc
+				mreturn suspendable
+			endmethod
+		endproperty
+
+		public property State, ProgramState
+			method get
+			proc
+				mreturn viewModel.State
+			endmethod
+			private method set
+			proc
+				viewModel.State = value
+			endmethod
+		endproperty
+
+		public property DisplayMode, DisplayMode
+			method get
+			proc
+				mreturn mDisplayMode
+			endmethod
+		endproperty
+
+.endregion
+
+.region "Methods called by Sonata to interact with the program"
+
+		;;Called by Sonata to tell the hosted program that it is being closed.
+		public method CloseApplication, void
+			endparams
+		proc
+			;;Tell the ViewModel that it is being closed
+			myDispatcher.Invoke(doViewModelClose)
+		endmethod
+
+		;TODO: BUG: Can't implement as a lambda because of "this" reference.		
+		private method doViewModelClose, void
+			endparams
+		proc
+			try
+			begin
+				viewModel.Closing()
+			end
+			catch (e, @Exception)
+			begin
+				;TODO: I think there may be a problem here if there is an error in the Closing() method
+				mHostSupport.FatalError(this,String.Format("{0}.Closing() failed. The error was: {1}",view.ViewModelType.ToString(),e.Message))
+			end
+			endtry
+		endmethod
+		
+		;;Called by Sonata to suspend the hosted program.
+		public method SuspendApplication, void
+			endparams
+		proc
+			if (suspendable && (State == ProgramState.Running))
+			begin
+				try
+				begin
+					;;Tell the program it is being suspended
+					data suspendableVM, @IMenuSuspend, ^as((@Object)viewModel,@IMenuSuspend)
+					suspendableVM.Suspending()
+					;;Set the program state
+					State = ProgramState.Suspended
+					;;If the program is hosted in a Window then we need to hide the window
+					if (mDisplayMode==DisplayMode.Window)
+					begin
+						lambda doHideWindow()
+						begin
+							hostWindow.Hide()
+						end
+						myDispatcher.Invoke(doHideWindow)
+					end
+				end
+				catch (e, @Exception)
+				begin
+					mHostSupport.FatalError(this,String.Format("{0}.Suspending() failed. The error was: {1}",view.ViewModelType.ToString(),e.Message))
+				end
+				endtry
+			end
+		endmethod
+		
+		;;Called by Sonata to resume the hosted program from suspend.
+		public method ResumeApplication, void
+			endparams
+		proc
+			if (suspendable && (State == ProgramState.Suspended))
+			begin
+				try
+				begin
+					;;Tell the program it is being resumed
+					data suspendableVM, @IMenuSuspend, ^as((@Object)viewModel,@IMenuSuspend)
+					suspendableVM.Resuming()
+					;;Set the program state
+					State = ProgramState.Running
+					;;If the program is hosted in a Window then we need to show the window
+					if (mDisplayMode==DisplayMode.Window)
+					begin
+						lambda doShowWindow()
+						begin
+							hostWindow.Show()						
+						end
+						myDispatcher.Invoke(doShowWindow)
+					end
+				end
+				catch (e, @Exception)
+				begin
+					mHostSupport.FatalError(this,String.Format("{0}.Resuming() failed. The error was: {1}",view.ViewModelType.ToString(),e.Message))
+				end
+				endtry
+			end
+		endmethod
+
+		;Called by Sonata to bring a running program to the front		
+		public method BringWindowToFront, void
+			endparams
+		proc
+			if (mDisplayMode==DisplayMode.Window)
+			begin
+				lambda doBringWindowToFront()
+				begin
+					;TODO: This doesn't appear to be working any more! Used to, we must have changed something
+					hostWindow.Focus()
+				end
+				myDispatcher.Invoke(doBringWindowToFront)
+			end
+		endmethod
+
+		;;Called by Sonata when the View needs to be resized
+		;;This is only applicable if the program is running in a tab and should not be called
+		;;if running in a window.
+		public method ResizeView, void
+			required in newWidth, double
+			required in newHeight, double
+			endparams
+		proc
+			if (mDisplayMode==DisplayMode.Tab)
+				ResizeWindow(newWidth,newHeight,hostWindowHandle)
+		endmethod
+
+		;;Called by Sonata when the Window needs to be closed as part of closing the hosted program
+		public method DestroyWindow, void
+			endparams
+		proc
+			lambda doDestroy()
+			begin
+				hostWindow.Close()
+				hostWindow = ^null
+				hostWindowHandle = 0
+				Application.Current.Shutdown()
+			end
+			myDispatcher.Invoke(doDestroy)
+			myDispatcher.InvokeShutdown()
+			while(!myDispatcher.HasShutdownFinished)
+				Thread.Sleep(50)
+		endmethod
+
+.endregion
+
+.region "WIN32 stuff"
+
+		public const GWL_STYLE,		int, -16
+		public const WS_POPUP,		uint, 2147483648
+		public const WS_CHILD,		uint, 1073741824
+		public const WS_CAPTION,	uint, 12582912
+		public const WS_SYSMENU,	uint, 524288
+		public const WS_THICKFRAME, uint, 262144
+		
+		{DllImport("user32.dll", SetLastError = true)}
+		public static method SetParent, IntPtr
+			hWndChild, IntPtr 
+			hWndNewParent, IntPtr 
+			endparams
+		proc
+		endmethod
+		
+		{DllImport("user32.dll", SetLastError = true)}
+		public  static method MoveWindow, boolean
+			hWnd, IntPtr 
+			X, int 
+			Y, int 
+			nWidth, int 
+			nHeight, int 
+			bRepaint, boolean 
+			endparams
+		proc
+		endmethod
+		
+		{DllImport("user32.dll")}
+		public static method SetWindowLong, int
+			hWnd, IntPtr 
+			nIndex, int 
+			dwNewLong, int 
+			endparams
+		proc
+		endmethod
+		
+		{DllImport("user32.dll", SetLastError = true)}
+		public static method GetWindowLong, int
+			hWnd, IntPtr 
+			nIndex, int 
+			endparams
+		proc
+		endmethod
+		
+		private static method ConfigureWindows, void
+			width, double
+			height, double
+			wpfWindowHandle, IntPtr
+			winFormsControlHandle, IntPtr
+		proc
+			;;Remove WS_POPUP, WS_CAPTION and WS_THICKFRAME, and add WS_CHILD from the WPF window 
+			data style, int, GetWindowLong(wpfWindowHandle, GWL_STYLE)
+			style = (((style & ~(WS_POPUP)) & ~(WS_CAPTION)) & ~(WS_THICKFRAME)) | WS_CHILD
+			SetWindowLong(wpfWindowHandle, GWL_STYLE, style)
+			;;Position the WPF window
+			MoveWindow(wpfWindowHandle,0,0,(int)width,(int)height,true)
+			;;Make the WinForms control the parent of the WPF window
+			SetParent(wpfWindowHandle, winFormsControlHandle)
+		endmethod
+		
+		private static method DisableCloseBox, void
+			wpfWindowHandle, IntPtr
+			endparams
+		proc
+			;;Remove WS_SYSMENU from the WPF window 
+			data style, int, GetWindowLong(wpfWindowHandle, GWL_STYLE)
+			style = (style & ~(WS_SYSMENU))
+			SetWindowLong(wpfWindowHandle, GWL_STYLE, style)
+		endmethod
+
+		private static method ResizeWindow, void
+			newWidth, double
+			newHeight, double
+			wpfWindowHandle, IntPtr
+		proc
+			MoveWindow(wpfWindowHandle,0,0,(int)newWidth,(int)newHeight,true)
+		endmethod
+
+.endregion
+
+	endclass
+	
+endnamespace
+

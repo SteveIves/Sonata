@@ -1,0 +1,349 @@
+;;*****************************************************************************
+;;
+;; Title:       ProgramDiscoveryVM.dbl
+;;
+;; Type:        Class (ViewModel)
+;;
+;; Description: ViewModel for Program Discovery view
+;;
+;; Date:        14th February 2014
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;              http://www.synergex.com
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2014, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+
+import System
+import System.Collections.ObjectModel
+import System.ComponentModel
+import System.IO
+import System.Reflection
+import System.Windows.Forms
+import System.Windows.Input
+import System.Xml
+import System.Xml.Serialization
+import Sonata.Discovery
+import Sonata.View
+
+namespace Sonata.ViewModel
+
+	public class ProgramDiscoveryVM extends ViewModelBase
+
+		private mView, @ProgramDiscoveryView
+
+.region "Constructor"
+
+		public method ProgramDiscoveryVM
+			required in aView, @ProgramDiscoveryView
+			endparams
+		proc	
+			mView = aView
+			mView.DataContext = this
+
+			;;Load any previous data
+			Assemblies = GetSavedProgramAssemblies()
+
+			;;Validate any existing data
+			validateAssemblies()
+
+			Programs = buildProgramsList()
+
+		endmethod
+
+.endregion
+
+.region "Logic"
+
+		private method validateAssemblies, void
+			endparams
+		proc
+			if (mAssemblies.Count>0)
+			begin
+				data newAssemblies, @ObservableCollection<ProgramAssembly>, new ObservableCollection<ProgramAssembly>()
+				data currentAssembly, @ProgramAssembly
+				foreach currentAssembly in mAssemblies
+				begin
+					if File.Exists(currentAssembly.AssemblyPath) then
+						newAssemblies.Add(new ProgramAssembly(currentAssembly.AssemblyPath))
+					else
+						MessageBox.Show(string.Format("Assembly {0} is missing and will be removed!",currentAssembly.AssemblyPath))
+				end
+				Assemblies = newAssemblies
+			end
+		endmethod
+
+		public static method GetSavedProgramAssemblies, @ObservableCollection<ProgramAssembly>
+			endparams
+		proc
+
+			data settingsFilePath, String, String.Format("{0}\Sonata\MenuPrograms.xml",Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData))
+			data results, @ObservableCollection<ProgramAssembly>, new ObservableCollection<ProgramAssembly>()
+
+			;;Do we have data to work with?
+			data stm, @FileStream
+			try
+			begin
+				stm = File.OpenRead(settingsFilePath)
+			end
+			catch (e, @Exception)
+			begin
+				stm = ^null
+			end
+			endtry
+			
+			if (stm!=^null)
+			begin
+				try
+				begin
+					data xs, @XmlSerializer, new XmlSerializer(^typeof(ObservableCollection<ProgramAssembly>))
+					data xr, @XmlReader, new XmlTextReader(stm)
+					results = (@ObservableCollection<ProgramAssembly>)xs.Deserialize(xr)
+					stm.Close()
+				end
+				catch (e, @Exception)
+				begin
+					stm.Close()
+					MessageBox.Show("Failed to load program data. The error was: " + e.Message)
+				end
+				endtry
+			end
+
+			mreturn results			
+			
+		endmethod
+		
+		private method buildProgramsList, @ObservableCollection<HostableWpfView>
+			endparams
+		proc
+			data progs, @ObservableCollection<HostableWpfView>, new ObservableCollection<HostableWpfView>()
+			data asy, @ProgramAssembly
+			foreach asy in mAssemblies
+			begin
+				data prog, @HostableWpfView
+				foreach prog in asy.Programs
+					progs.Add(prog)
+			end
+			mreturn progs
+		endmethod
+
+.endregion
+
+.region "Binding Properties"
+
+		private mAssemblies, @ObservableCollection<ProgramAssembly>
+
+		public property Assemblies, @ObservableCollection<ProgramAssembly>
+			method get
+			proc
+				if (mAssemblies==^null)
+				begin
+					mAssemblies = new ObservableCollection<ProgramAssembly>()
+				end
+				mreturn mAssemblies
+			endmethod
+			method set
+			proc
+				mAssemblies = value
+				if (mAssemblies.Count>0)
+					SelectedAssembly = mAssemblies[0]
+				NotifyPropertyChanged("Assemblies")
+			endmethod
+		endproperty
+
+		private mSelectedAssembly, @ProgramAssembly
+
+		public property SelectedAssembly, @ProgramAssembly
+			method get
+			proc
+				mreturn mSelectedAssembly
+			endmethod
+			method set
+			proc
+				mSelectedAssembly = value
+				NotifyPropertyChanged("SelectedAssembly")
+				NotifyPropertyChanged("SelectedAssemblyPrograms")
+			endmethod
+		endproperty
+
+		private mPrograms, @ObservableCollection<HostableWpfView>
+
+		public property Programs, @ObservableCollection<HostableWpfView>
+			method get
+			proc
+				mreturn mPrograms
+			endmethod
+			method set
+			proc
+				mPrograms = value
+				NotifyPropertyChanged("Programs")
+			endmethod
+		endproperty
+		
+		public property BackgroundColor, String
+			method get
+			proc
+				mreturn Properties.Settings.Default.BackgroundColor
+			endmethod
+		endproperty
+		
+
+.endregion
+
+.region "AddAssemblyCommand"
+
+		private mAddAssemblyCommand, @ICommand
+
+		public property AddAssemblyCommand, @ICommand
+			method get
+			proc
+				if (mAddAssemblyCommand==^null)
+				begin
+					lambda doAddAssemblyCommand(param)
+					begin
+						data dlg, @OpenFileDialog, new OpenFileDialog()
+						dlg.Filter = "Assembly Files (*.dll)|*.dll"
+						dlg.Title = "Select an assembly that contains programs"
+						if (dlg.ShowDialog())
+						begin
+							if (!String.IsNullOrWhiteSpace(dlg.FileName))
+							begin
+								data newAssembly, @ProgramAssembly, new ProgramAssembly(dlg.FileName)
+								Assemblies.Add(newAssembly)
+								SelectedAssembly = newAssembly
+							end
+						end
+						;;Update the programs list
+						Programs = buildProgramsList()
+					end
+					mAddAssemblyCommand = new RelayCommand(doAddAssemblyCommand)
+				end
+				mreturn mAddAssemblyCommand
+			endmethod
+		endproperty
+
+.endregion
+		
+.region "RemoveAssemblyCommand"
+		
+		private mRemoveAssemblyCommand, @ICommand
+		
+		public property RemoveAssemblyCommand , @ICommand
+			method get
+			proc
+				if (mRemoveAssemblyCommand == ^null)
+				begin
+					lambda doRemoveAssemblyCommand(param)
+					begin
+						;;Get the index of the selected assembly in the assemblies collection
+						data ix, int, mAssemblies.IndexOf(mSelectedAssembly)
+						Assemblies.Remove(SelectedAssembly)
+						;;Update the programs list
+						Programs = buildProgramsList()
+						;;Re-select an assembly
+						if (mAssemblies.Count>0)
+						begin
+							if (mAssemblies.Count-1>=ix) then
+								SelectedAssembly = mAssemblies[ix]
+							else
+								SelectedAssembly = mAssemblies[mAssemblies.Count-1]
+						end
+					end
+					lambda canDoRemoveAssemblyCommand(param)
+					begin
+						mreturn (SelectedAssembly!=^null)
+					end
+					mRemoveAssemblyCommand = new RelayCommand(doRemoveAssemblyCommand,canDoRemoveAssemblyCommand)
+				end
+				mreturn mRemoveAssemblyCommand
+			endmethod
+		endproperty
+		
+.endregion
+		
+.region "SaveAndCloseCommand"
+		
+		private mSaveAndCloseCommand, @ICommand
+		
+		public property SaveAndCloseCommand , @ICommand
+			method get
+			proc
+				if (mSaveAndCloseCommand == ^null)
+				begin
+					lambda doSaveAndCloseCommand(param)
+					begin
+						if (Boolean.Parse((string)param))
+						begin
+							data settingsFilePath, String, String.Format("{0}\Sonata\MenuPrograms.xml",Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData))
+							if (mAssemblies.Count>0) then
+							begin
+								try
+								begin
+									if (File.Exists(settingsFilePath))
+										File.Delete(settingsFilePath)
+									data stm, @Stream, File.Create(settingsFilePath)
+									if(stm!=^null)
+									begin
+										data xs, @XmlSerializer, new XmlSerializer(mAssemblies.GetType())
+										xs.Serialize(stm,mAssemblies)
+										stm.Close()
+									end
+								end
+								catch (e, @Exception)
+								begin
+									MessageBox.Show("Failed to save program data! The error was " + e.Message)
+								end
+								endtry
+							end
+							else
+							begin
+								try
+								begin
+									File.Delete(settingsFilePath)
+								end
+								catch (e)
+								begin
+									nop
+								end
+								endtry								
+							end
+						end
+						mView.Close()
+					end
+					mSaveAndCloseCommand = new RelayCommand(doSaveAndCloseCommand)
+				end
+				mreturn mSaveAndCloseCommand
+			endmethod
+		endproperty
+		
+.endregion
+
+	endclass
+
+endnamespace

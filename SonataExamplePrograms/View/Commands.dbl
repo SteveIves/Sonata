@@ -1,0 +1,108 @@
+;;*****************************************************************************
+;;
+;; Title:       Commands.dbl
+;;
+;; Type:        Class
+;;
+;; Description: Facilitates mapping UI events to ViewModel ICommands
+;;
+;; Date:        18th February 2014
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;              http://www.synergex.com
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2014, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+
+import System
+import System.Collections.Generic
+import System.Text
+import System.Windows
+import System.Windows.Input
+import System.Windows.Controls
+
+namespace SonataExamplePrograms.View
+
+	public static class Commands
+		
+		public static readonly DataGridDoubleClickProperty, @DependencyProperty, DependencyProperty.RegisterAttached("DataGridDoubleClickCommand", ^typeof(ICommand), ^typeof(Commands), new PropertyMetadata(new PropertyChangedCallback(AttachOrRemoveDataGridDoubleClickEvent)))
+		
+		public static method GetDataGridDoubleClickCommand, @ICommand
+			obj, @DependencyObject 
+			endparams
+		proc
+			mreturn (@ICommand)obj.GetValue(DataGridDoubleClickProperty)
+		endmethod
+		
+		public static method SetDataGridDoubleClickCommand, void
+			obj, @DependencyObject 
+			value, @ICommand 
+			endparams
+		proc
+			obj.SetValue(DataGridDoubleClickProperty, value)
+		endmethod
+		
+		public static method AttachOrRemoveDataGridDoubleClickEvent, void
+			obj, @DependencyObject 
+			args, DependencyPropertyChangedEventArgs 
+			endparams
+		proc
+			data local_dataGrid, @DataGrid, ^as(obj, DataGrid)
+			if (local_dataGrid != ^null)
+			begin
+				data cmd, @ICommand, (@ICommand)args.NewValue
+				if ((args.OldValue == ^null) && (args.NewValue != ^null)) then
+				begin
+					local_dataGrid.MouseDoubleClick += ExecuteDataGridDoubleClick
+				end
+				else if ((args.OldValue != ^null) && (args.NewValue == ^null))
+				begin
+					local_dataGrid.MouseDoubleClick -= ExecuteDataGridDoubleClick
+				end
+			end
+		endmethod
+		
+		private static method ExecuteDataGridDoubleClick, void
+			sender, @Object 
+			args, @MouseButtonEventArgs 
+			endparams
+		proc
+			data obj, @DependencyObject, ^as(sender, DependencyObject)
+			data cmd, @ICommand, (@ICommand)obj.GetValue(DataGridDoubleClickProperty)
+			if (cmd != ^null)
+			begin
+				if (cmd.CanExecute(obj))
+				begin
+					cmd.Execute(obj)
+				end
+			end
+		endmethod
+	endclass
+	
+endnamespace

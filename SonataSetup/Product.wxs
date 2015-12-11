@@ -1,0 +1,183 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi"
+     xmlns:util="http://schemas.microsoft.com/wix/UtilExtension"
+     xmlns:netfx="http://schemas.microsoft.com/wix/NetFxExtension">
+
+  <!--
+    When publishing a new version, change the version number and Product Id GUID.
+    *** NEVER CHANGE THE UpgradeCode GUID ***
+    -->
+
+  <Product
+    Name="Sonata"
+    Version="1.8"
+    Id="{85E37F45-8DB4-4523-99FC-692F879A7733}"
+    Language="1033"
+    Manufacturer="Synergex International Corporation"
+    UpgradeCode="{61DA1270-2EC3-4979-9D24-57965897B06D}">
+
+    <Package
+      Description="Sonata Application Shell"
+      InstallerVersion="200"
+      Compressed="yes"
+      InstallScope="perMachine" />
+
+    <!-- ************************************************************************************************************* -->
+    <!-- Setting these properties causes these URL's to be displayed when the application is selected in "Programs and Features"-->
+
+    <Property Id="ARPHELPLINK"      Value="http://sonata.codeplex.com/documentation" />
+    <Property Id="ARPURLINFOABOUT"  Value="http://sonata.codeplex.com/workitem/list/basic" />
+    <Property Id="ARPURLUPDATEINFO" Value="http://sonata.codeplex.com/releases" />
+
+    <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
+
+    <MediaTemplate EmbedCab="yes" />
+
+    <!-- ************************************************************************************************************* -->
+    <!-- Set the license text to be displayed before installation -->
+
+    <WixVariable Id="WixUILicenseRtf" Value="..\license.rtf" />
+
+    <!-- ************************************************************************************************************* -->
+    <!--Set the images to be displayed in the UI-->
+
+    <WixVariable Id="WixUIBannerBmp" Value="banner.jpg"/>
+    <WixVariable Id="WixUIDialogBmp" Value="background.jpg"/>
+    
+    <!-- ************************************************************************************************************* -->
+    <!-- Set the icon to be used in "Programs & Features" -->
+
+    <Icon Id="ico_Sonata.ico" SourceFile="..\Sonata\Sonata.ico"/>
+    <Property Id="ARPPRODUCTICON" Value="ico_Sonata.ico" />
+
+    <!-- ************************************************************************************************************* -->
+    <!-- Set the installer UI type -->
+
+    <UI>
+      <UIRef Id="WixUI_FeatureTree"/>
+    </UI>
+
+    <!-- ************************************************************************************************************* -->
+    <!-- Search the registry to determine if Synergy/DE is installed and terminate the installation if not. -->
+
+    <Property Id="SDEINSTALLED">
+      <RegistrySearch Id="SdeInstalledValue" Root="HKLM" Key="SOFTWARE\Synergex\Install" Name="SDELOC" Type="raw" />
+    </Property>
+    <Condition Message="Sonata requires Synergy/DE. Please install Synergy/DE then run this installer again.">
+      <![CDATA[Installed OR SDEINSTALLED]]>
+    </Condition>
+
+    <!-- ************************************************************************************************************* -->
+    <!-- Terminate the installation if .NET Framework 4.5 is not installed -->
+
+    <PropertyRef Id="NETFRAMEWORK45"/>
+    <Condition Message="This application requires .NET Framework 4.5. Please install the .NET Framework then run this installer again.">
+      <![CDATA[Installed OR NETFRAMEWORK45]]>
+    </Condition>
+
+    <!-- ************************************************************************************************************* -->
+    <!-- Define the folders that the installation uses -->
+
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <!-- Program Files Folder -->
+      <Directory Id="ProgramFilesFolder">
+        <Directory Id="SynergexFolder" Name="Synergex">
+          <Directory Id="MAINFOLDER" Name="Sonata" />
+        </Directory>
+      </Directory>
+      <!-- Start Menu Folder -->
+      <Directory Id="ProgramMenuFolder">
+        <Directory Id="ApplicationProgramsFolder" Name="Sonata"/>
+      </Directory>
+    </Directory>
+
+    <!-- Files -->
+
+    <DirectoryRef Id="MAINFOLDER">
+      <Component Id="Sonata.exe" Guid="{DA37A123-7794-43FA-88B1-D9247A306FC8}">
+        <File Id="Sonata.exe" KeyPath="yes" Source="..\Bin\Release\Sonata.exe" Checksum="yes">
+          <netfx:NativeImage Id="Sonata.exe" Platform="32bit" Priority="0" AppBaseDirectory="MAINFOLDER"/>
+        </File>
+      </Component>
+      <Component Id="SonataApplicationProxy.exe" Guid="{C7BBFEC3-9F44-4C6D-8847-8C516609FD86}">
+        <File Id="SonataApplicationProxy.exe" KeyPath="yes" Source="..\Bin\Release\SonataApplicationProxy.exe" Checksum="yes">
+          <netfx:NativeImage Id="SonataApplicationProxy.exe" Platform="32bit" Priority="0" AppBaseDirectory="MAINFOLDER"/>
+        </File>
+      </Component>
+      <Component Id="SonataExamplePrograms.dll" Guid="{5115A296-0705-4379-A63C-85207C81C099}">
+        <File Id="SonataExamplePrograms.dll" KeyPath="yes" Source="..\Bin\Release\SonataExamplePrograms.dll" Checksum="yes">
+          <netfx:NativeImage Id="SonataExamplePrograms.dll" Platform="32bit" Priority="0" AppBaseDirectory="MAINFOLDER"/>
+        </File>
+      </Component>
+      <Component Id="SonataInterface.dll" Guid="{3CE848C3-D4D8-49EA-8B95-C3627229585C}">
+        <File Id="SonataInterface.dll" KeyPath="yes" Source="..\Bin\Release\SonataInterface.dll" Checksum="yes">
+          <netfx:NativeImage Id="SonataInterface.dll" Platform="32bit" Priority="0" AppBaseDirectory="MAINFOLDER"/>
+        </File>
+      </Component>
+      <Component Id="Sonata.chm" Guid="{170AA618-6134-42E5-ADAD-5164CDED9C4F}">
+        <File Id="Sonata.chm" KeyPath="yes" Source="..\Documentation\Sonata.chm" />
+      </Component>
+      <Component Id="Sonata.exe.config" Guid="{CD111670-4ADF-49F6-9D26-1F1077E9EEC5}">
+        <File Id="Sonata.exe.config" KeyPath="yes" Source="..\Bin\Release\Sonata.exe.config" />
+      </Component>
+      <Component Id="Sonata.ico" Guid="{6A1E4A12-931B-425F-B064-AAB103359DF7}">
+        <File Id="Sonata.ico" KeyPath="yes" Source="..\Sonata\Sonata.ico" />
+      </Component>
+      <Component Id="SonataLogo.png" Guid="{B0B2AAD6-4868-413A-B760-5E6805AED313}">
+        <File Id="SonataLogo.png" KeyPath="yes" Source="..\Sonata\Media\SonataLogo.png" />
+      </Component>
+      <Component Id="Xceed.Wpf.AvalonDock.dll" Guid="{13ED767F-F054-414A-B13A-2369BF6FEEB1}">
+        <File Id="Xceed.Wpf.AvalonDock.dll" KeyPath="yes" Source="..\Bin\Release\Xceed.Wpf.AvalonDock.dll" />
+      </Component>
+      <Component Id="Xceed.Wpf.AvalonDock.Themes.Aero.dll" Guid="{B6B8964C-1898-4599-A70C-66931AC31EA3}">
+        <File Id="Xceed.Wpf.AvalonDock.Themes.Aero.dll" KeyPath="yes" Source="..\Bin\Release\Xceed.Wpf.AvalonDock.Themes.Aero.dll" />
+      </Component>
+      <Component Id="Xceed.Wpf.AvalonDock.Themes.Metro.dll" Guid="{5CA836F0-3979-4E44-9B0C-F18CDFB49B71}">
+        <File Id="Xceed.Wpf.AvalonDock.Themes.Metro.dll" KeyPath="yes" Source="..\Bin\Release\Xceed.Wpf.AvalonDock.Themes.Metro.dll" />
+      </Component>
+      <Component Id="Xceed.Wpf.AvalonDock.Themes.VS2010.dll" Guid="{65CBB512-14CD-4C1C-9652-FA095457E060}">
+        <File Id="Xceed.Wpf.AvalonDock.Themes.VS2010.dll" KeyPath="yes" Source="..\Bin\Release\Xceed.Wpf.AvalonDock.Themes.VS2010.dll" />
+      </Component>
+      <Component Id="Xceed.Wpf.DataGrid.dll" Guid="{4105EC90-D8B1-43E4-B728-48D88E201462}">
+        <File Id="Xceed.Wpf.DataGrid.dll" KeyPath="yes" Source="..\Bin\Release\Xceed.Wpf.DataGrid.dll" />
+      </Component>
+      <Component Id="Xceed.Wpf.Toolkit.dll" Guid="{42A5B63E-E89B-42F8-B166-F09007B29B00}">
+        <File Id="Xceed.Wpf.Toolkit.dll" KeyPath="yes" Source="..\Bin\Release\Xceed.Wpf.Toolkit.dll" />
+      </Component>
+    </DirectoryRef>
+
+    <!-- Shortcuts -->
+    
+    <DirectoryRef Id="ApplicationProgramsFolder">
+      <Component Id="Sonata_Shortcuts" Guid="{926DFD71-D7A6-40EE-A870-001894BC323C}">
+        <Shortcut Id="Sonata.exe.Shortcut" Name="Sonata" Description="Starts Sonata" Target="[#Sonata.exe]" WorkingDirectory="MAINFOLDER"/>
+        <Shortcut Id="Sonata.Uninstall.Shortcut" Name="Uninstall Sonata" Description="Uninstalls Sonata" Target="[System64Folder]msiexec.exe" Arguments="/x [ProductCode]"/>
+        <RegistryValue Root="HKCU" Key="Software\Synergex\Sonata" Name="SonataShortcutsInstalled" Type="integer" Value="1" KeyPath="yes"/>
+        <RemoveFolder Id="ApplicationProgramsFolder" On="uninstall"/>
+      </Component>
+    </DirectoryRef>
+
+    <!-- Feature -->
+
+    <Feature Id="FeatureCore" Title="Sonata" Level="1" Absent="disallow" Description="Installs the core Sonata environment.">
+      <ComponentRef Id="Sonata.exe" />
+      <ComponentRef Id="SonataApplicationProxy.exe" />
+      <ComponentRef Id="SonataExamplePrograms.dll" />
+      <ComponentRef Id="SonataInterface.dll" />
+      <ComponentRef Id="Sonata.chm" />
+      <ComponentRef Id="Sonata.exe.config" />
+      <ComponentRef Id="Sonata.ico" />
+      <ComponentRef Id="SonataLogo.png" />
+      <ComponentRef Id="Xceed.Wpf.AvalonDock.dll" />
+      <ComponentRef Id="Xceed.Wpf.AvalonDock.Themes.Aero.dll" />
+      <ComponentRef Id="Xceed.Wpf.AvalonDock.Themes.Metro.dll" />
+      <ComponentRef Id="Xceed.Wpf.AvalonDock.Themes.VS2010.dll" />
+      <ComponentRef Id="Xceed.Wpf.DataGrid.dll" />
+      <ComponentRef Id="Xceed.Wpf.Toolkit.dll" />
+      <ComponentRef Id="Sonata_Shortcuts" />
+    </Feature>
+
+
+  </Product>
+
+</Wix>

@@ -1,0 +1,174 @@
+;;*****************************************************************************
+;;
+;; Title:       ViewModelBase.dbl
+;;
+;; Type:        Class
+;;
+;; Description: Base ViewModel class for Sonata-hostable ViewModels. This class
+;;              provides IMenuView and INotifyPropertyChanged implementations
+;;              as well as implementing an ICommand named CloseCommand that
+;;              raises the Close event to cause Sonata to close the program.
+;;
+;; Date:        7th May 2014
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;              http://www.synergex.com
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2014, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+
+import System
+import System.ComponentModel
+import System.Windows.Input
+import Sonata.Interface
+
+namespace Sonata.Interface.Tools
+
+	public abstract class ViewModelBase extends NotifyPropertyChangedProvider implements IMenuViewModel
+
+		private mView,			@IMenuView
+		private mState,			ProgramState
+		private mCloseCommand,	@ICommand
+		
+		public method ViewModelBase
+			required in aView, @IMenuView
+			endparams
+		proc
+			mView = aView
+		endmethod
+
+.region "IMenuViewModel"
+		
+		;;; <summary>
+		;;; The view that a ViewModel is associated with
+		;;; </summary>
+		public virtual property View, @IMenuView
+			method get
+			proc
+				mreturn mView
+			endmethod
+			method set
+			proc
+				mView = value
+				NotifyPropertyChanged("View")
+			endmethod
+		endproperty		
+		
+		;;; <summary>
+		;;; The state property will be updated by Sonata to indicate the
+		;;; current state (Running or Suspended) of the program.
+		;;; </summary>
+		public virtual property State, ProgramState
+			method get
+			proc
+				mreturn mState
+			endmethod
+			method set
+			proc
+				mState = value
+				NotifyPropertyChanged("State")
+			endmethod
+		endproperty
+		
+		;;; <summary>
+		;;; Called by Sonata when a brand new program instance has been created.
+		;;; </summary>
+		public virtual method Initializing, boolean
+			required out errorMessage, String
+			endparams
+		proc
+			mreturn true
+		endmethod
+		
+		;;; <summary>
+		;;; Called by Sonata when this program instance is about to be deleted.
+		;;; </summary>
+		public virtual method Closing, void
+			endparams
+		proc
+
+		endmethod
+		
+		;;; <summary>
+		;;; This event is raised in order to close the current program instance.
+		;;; Sonata listens for this event and then either terminates or suspends
+		;;; the program, depending on program capabilities and user preferences.
+		;;; </summary>
+		public event Close, @CloseEventHandler
+		
+		;;; <summary>
+		;;; Used by descendant classes to raise the Close event.
+		;;; </summary>
+		protected virtual method RaiseClose, void
+			endparams
+		proc
+			raiseevent(close)
+		endmethod
+
+		;;; <summary>
+		;;; This event is raised in order to tell Sonats that the program
+		;;; encountered a fatal error and should be closed.
+		;;; </summary>
+		public event FatalError, @FatalErrorEventHandler
+
+		;;; <summary>
+		;;; Used by descendant classes to raise the FatalError event.
+		;;; </summary>
+		;;; <param name="aErrorMessage">Error message to report.</param>
+		protected virtual method RaiseFatalError, void
+			required in aErrorMessage, String
+			endparams
+		proc
+			raiseevent(FatalError,aErrorMessage)
+		endmethod
+		
+.endregion
+		
+.region "CloseCommand"
+		
+		public virtual property CloseCommand, @ICommand
+			method get
+			proc
+				if (mCloseCommand==^null)
+				begin
+					lambda doCloseCommand(param)
+					begin
+						RaiseClose()
+					end
+					mCloseCommand = new RelayCommand(doCloseCommand)
+				end
+				mreturn mCloseCommand
+			endmethod
+		endproperty
+		
+.endregion
+
+	endclass
+
+endnamespace

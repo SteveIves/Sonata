@@ -1,0 +1,339 @@
+namespace Sonata.Properties
+
+	{System.Runtime.CompilerServices.CompilerGeneratedAttribute()}
+	{System.CodeDom.Compiler.GeneratedCodeAttribute("Microsoft.VisualStudio.Editors.SettingsDesigner.SettingsSingleFileGenerator", "12.0.0.0")}
+	internal sealed partial class Settings inherits System.Configuration.ApplicationSettingsBase
+
+		private static defaultInstance, @Settings, (@Settings)System.Configuration.ApplicationSettingsBase.Synchronized(new Settings())
+
+		public static property Default, @Settings
+			method get
+			proc
+				mreturn defaultInstance
+			endmethod
+		endproperty
+
+		{System.Configuration.UserScopedSettingAttribute()}
+		{System.Diagnostics.DebuggerNonUserCodeAttribute()}
+		{System.Configuration.DefaultSettingValueAttribute("True")}
+		public property KeepProgramsAlive, System.Boolean
+			method get
+			proc
+				mreturn (System.Boolean)this["KeepProgramsAlive"]
+			endmethod
+			method set
+			proc
+				this["KeepProgramsAlive"] = value
+			endmethod
+		endproperty
+
+		{System.Configuration.UserScopedSettingAttribute()}
+		{System.Diagnostics.DebuggerNonUserCodeAttribute()}
+		{System.Configuration.DefaultSettingValueAttribute("True")}
+		public property ShowSplashScreen, System.Boolean
+			method get
+			proc
+				mreturn (System.Boolean)this["ShowSplashScreen"]
+			endmethod
+			method set
+			proc
+				this["ShowSplashScreen"] = value
+			endmethod
+		endproperty
+
+		{System.Configuration.UserScopedSettingAttribute()}
+		{System.Diagnostics.DebuggerNonUserCodeAttribute()}
+		{System.Configuration.DefaultSettingValueAttribute("Sonata")}
+		public property MenuTitle, string
+			method get
+			proc
+				mreturn (string)this["MenuTitle"]
+			endmethod
+			method set
+			proc
+				this["MenuTitle"] = value
+			endmethod
+		endproperty
+
+		{System.Configuration.UserScopedSettingAttribute()}
+		{System.Diagnostics.DebuggerNonUserCodeAttribute()}
+		{System.Configuration.DefaultSettingValueAttribute("WhiteSmoke")}
+		public property BackgroundColor, string
+			method get
+			proc
+				mreturn (string)this["BackgroundColor"]
+			endmethod
+			method set
+			proc
+				this["BackgroundColor"] = value
+			endmethod
+		endproperty
+
+		{System.Configuration.UserScopedSettingAttribute()}
+		{System.Diagnostics.DebuggerNonUserCodeAttribute()}
+		{System.Configuration.DefaultSettingValueAttribute("")}
+		public property BackgroundImage, string
+			method get
+			proc
+				mreturn (string)this["BackgroundImage"]
+			endmethod
+			method set
+			proc
+				this["BackgroundImage"] = value
+			endmethod
+		endproperty
+
+		{System.Configuration.UserScopedSettingAttribute()}
+		{System.Diagnostics.DebuggerNonUserCodeAttribute()}
+		{System.Configuration.DefaultSettingValueAttribute("Tab")}
+		public property LaunchMode, Sonata.Interface.DisplayMode
+			method get
+			proc
+				mreturn (Sonata.Interface.DisplayMode)this["LaunchMode"]
+			endmethod
+			method set
+			proc
+				this["LaunchMode"] = value
+			endmethod
+		endproperty
+
+		{System.Configuration.UserScopedSettingAttribute()}
+		{System.Diagnostics.DebuggerNonUserCodeAttribute()}
+		{System.Configuration.DefaultSettingValueAttribute("True")}
+		public property FirstTimeRun, System.Boolean
+			method get
+			proc
+				mreturn (System.Boolean)this["FirstTimeRun"]
+			endmethod
+			method set
+			proc
+				this["FirstTimeRun"] = value
+			endmethod
+		endproperty
+
+		{System.Configuration.UserScopedSettingAttribute()}
+		{System.Diagnostics.DebuggerNonUserCodeAttribute()}
+		{System.Configuration.DefaultSettingValueAttribute("https://sonata.codeplex.com")}
+		public property HomePageUrl, string
+			method get
+			proc
+				mreturn (string)this["HomePageUrl"]
+			endmethod
+			method set
+			proc
+				this["HomePageUrl"] = value
+			endmethod
+		endproperty
+
+		{System.Configuration.UserScopedSettingAttribute()}
+		{System.Diagnostics.DebuggerNonUserCodeAttribute()}
+		{System.Configuration.DefaultSettingValueAttribute("https://sonata.codeplex.com/workitem/list/basic")}
+		public property SupportUrl, string
+			method get
+			proc
+				mreturn (string)this["SupportUrl"]
+			endmethod
+			method set
+			proc
+				this["SupportUrl"] = value
+			endmethod
+		endproperty
+
+		{System.Configuration.UserScopedSettingAttribute()}
+		{System.Diagnostics.DebuggerNonUserCodeAttribute()}
+		{System.Configuration.DefaultSettingValueAttribute("")}
+		public property HelpUrlOrFile, string
+			method get
+			proc
+				mreturn (string)this["HelpUrlOrFile"]
+			endmethod
+			method set
+			proc
+				this["HelpUrlOrFile"] = value
+			endmethod
+		endproperty
+
+		{System.Configuration.UserScopedSettingAttribute()}
+		{System.Diagnostics.DebuggerNonUserCodeAttribute()}
+		{System.Configuration.DefaultSettingValueAttribute("https://sonata.codeplex.com/releases")}
+		public property DownloadsUrl, string
+			method get
+			proc
+				mreturn (string)this["DownloadsUrl"]
+			endmethod
+			method set
+			proc
+				this["DownloadsUrl"] = value
+			endmethod
+		endproperty
+
+		{System.Configuration.UserScopedSettingAttribute()}
+		{System.Diagnostics.DebuggerNonUserCodeAttribute()}
+		{System.Configuration.DefaultSettingValueAttribute("True")}
+		public property ShowUpdateCheck, System.Boolean
+			method get
+			proc
+				mreturn (System.Boolean)this["ShowUpdateCheck"]
+			endmethod
+			method set
+			proc
+				this["ShowUpdateCheck"] = value
+			endmethod
+		endproperty
+
+		{System.Configuration.UserScopedSettingAttribute()}
+		{System.Diagnostics.DebuggerNonUserCodeAttribute()}
+		{System.Configuration.DefaultSettingValueAttribute("100")}
+		public property WindowTop, double
+			method get
+			proc
+				mreturn (double)this["WindowTop"]
+			endmethod
+			method set
+			proc
+				this["WindowTop"] = value
+			endmethod
+		endproperty
+
+		{System.Configuration.UserScopedSettingAttribute()}
+		{System.Diagnostics.DebuggerNonUserCodeAttribute()}
+		{System.Configuration.DefaultSettingValueAttribute("100")}
+		public property WindowLeft, double
+			method get
+			proc
+				mreturn (double)this["WindowLeft"]
+			endmethod
+			method set
+			proc
+				this["WindowLeft"] = value
+			endmethod
+		endproperty
+
+		{System.Configuration.UserScopedSettingAttribute()}
+		{System.Diagnostics.DebuggerNonUserCodeAttribute()}
+		{System.Configuration.DefaultSettingValueAttribute("800")}
+		public property WindowHeight, double
+			method get
+			proc
+				mreturn (double)this["WindowHeight"]
+			endmethod
+			method set
+			proc
+				this["WindowHeight"] = value
+			endmethod
+		endproperty
+
+		{System.Configuration.UserScopedSettingAttribute()}
+		{System.Diagnostics.DebuggerNonUserCodeAttribute()}
+		{System.Configuration.DefaultSettingValueAttribute("1000")}
+		public property WindowWidth, double
+			method get
+			proc
+				mreturn (double)this["WindowWidth"]
+			endmethod
+			method set
+			proc
+				this["WindowWidth"] = value
+			endmethod
+		endproperty
+
+		{System.Configuration.UserScopedSettingAttribute()}
+		{System.Diagnostics.DebuggerNonUserCodeAttribute()}
+		{System.Configuration.DefaultSettingValueAttribute("Normal")}
+		public property WindowState, System.Windows.WindowState
+			method get
+			proc
+				mreturn (System.Windows.WindowState)this["WindowState"]
+			endmethod
+			method set
+			proc
+				this["WindowState"] = value
+			endmethod
+		endproperty
+
+		{System.Configuration.UserScopedSettingAttribute()}
+		{System.Diagnostics.DebuggerNonUserCodeAttribute()}
+		{System.Configuration.DefaultSettingValueAttribute("True")}
+		public property EnableApplicationHelp, System.Boolean
+			method get
+			proc
+				mreturn (System.Boolean)this["EnableApplicationHelp"]
+			endmethod
+			method set
+			proc
+				this["EnableApplicationHelp"] = value
+			endmethod
+		endproperty
+
+		{System.Configuration.UserScopedSettingAttribute()}
+		{System.Diagnostics.DebuggerNonUserCodeAttribute()}
+		{System.Configuration.DefaultSettingValueAttribute("Sonata Help")}
+		public property ApplicationHelpText, string
+			method get
+			proc
+				mreturn (string)this["ApplicationHelpText"]
+			endmethod
+			method set
+			proc
+				this["ApplicationHelpText"] = value
+			endmethod
+		endproperty
+
+		{System.Configuration.UserScopedSettingAttribute()}
+		{System.Diagnostics.DebuggerNonUserCodeAttribute()}
+		{System.Configuration.DefaultSettingValueAttribute("Sonata Web Site")}
+		public property HomePageText, string
+			method get
+			proc
+				mreturn (string)this["HomePageText"]
+			endmethod
+			method set
+			proc
+				this["HomePageText"] = value
+			endmethod
+		endproperty
+
+		{System.Configuration.UserScopedSettingAttribute()}
+		{System.Diagnostics.DebuggerNonUserCodeAttribute()}
+		{System.Configuration.DefaultSettingValueAttribute("True")}
+		public property EnableHomePage, System.Boolean
+			method get
+			proc
+				mreturn (System.Boolean)this["EnableHomePage"]
+			endmethod
+			method set
+			proc
+				this["EnableHomePage"] = value
+			endmethod
+		endproperty
+
+		{System.Configuration.UserScopedSettingAttribute()}
+		{System.Diagnostics.DebuggerNonUserCodeAttribute()}
+		{System.Configuration.DefaultSettingValueAttribute("True")}
+		public property EnableSupport, System.Boolean
+			method get
+			proc
+				mreturn (System.Boolean)this["EnableSupport"]
+			endmethod
+			method set
+			proc
+				this["EnableSupport"] = value
+			endmethod
+		endproperty
+
+		{System.Configuration.UserScopedSettingAttribute()}
+		{System.Diagnostics.DebuggerNonUserCodeAttribute()}
+		{System.Configuration.DefaultSettingValueAttribute("Get Support On-Line")}
+		public property SupportText, string
+			method get
+			proc
+				mreturn (string)this["SupportText"]
+			endmethod
+			method set
+			proc
+				this["SupportText"] = value
+			endmethod
+		endproperty
+	endclass
+endnamespace
+
