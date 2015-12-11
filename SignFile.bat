@@ -35,7 +35,7 @@ if "%PASSWORD%"=="" (
 
 :gotPassword
 
-set PATH=C:\Program Files (x86)\Windows Kits\8.1\bin\x86;%PATH%
+set PATH=%WindowsSdkDir%bin\x86;%PATH%
 
 set TIMESTAMP_URL=http://timestamp.entrust.net/TSS/AuthenticodeTS
 
