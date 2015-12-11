@@ -10,8 +10,9 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>SonataApplicationProxy</RootNamespace>
     <AssemblyName>SonataApplicationProxy</AssemblyName>
-    <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
-    <TargetFrameworkProfile>Client</TargetFrameworkProfile>
+    <TargetFrameworkVersion>v4.5.2</TargetFrameworkVersion>
+    <TargetFrameworkProfile>
+    </TargetFrameworkProfile>
     <FileAlignment>512</FileAlignment>
     <Language>Synergy</Language>
     <ProjectTypeGuids>{339B3E77-97E9-4f6d-9151-E6D103EA4D4A};{60dc8134-eba5-43b8-bcc9-bb4bc16c2548};{BBD0F5D1-1CC4-42fd-BA4C-A96779C64378}</ProjectTypeGuids>
@@ -37,7 +38,7 @@
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
     <OutputPath>$(SolutionDir)Bin\Debug\</OutputPath>
-    <PlatformTarget>x86</PlatformTarget>
+    <PlatformTarget>AnyCPU</PlatformTarget>
     <DefineConstants>
     </DefineConstants>
     <ErrorReport>prompt</ErrorReport>
@@ -53,6 +54,9 @@
     <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
     <EnableSQLServerDebugging>false</EnableSQLServerDebugging>
     <UseVSHostingProcess>false</UseVSHostingProcess>
+    <Prefer32bit>false</Prefer32bit>
+    <LanguageCompatibilityLevel>100301</LanguageCompatibilityLevel>
+    <TargetRuntimeLevel>100301</TargetRuntimeLevel>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>

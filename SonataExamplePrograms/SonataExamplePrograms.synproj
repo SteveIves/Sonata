@@ -9,9 +9,10 @@
     <RootNamespace>SonataExamplePrograms</RootNamespace>
     <AssemblyName>SonataExamplePrograms</AssemblyName>
     <MainFile>Class.dbl</MainFile>
-    <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.5.2</TargetFrameworkVersion>
     <TargetPlatform>v4</TargetPlatform>
-    <TargetFrameworkProfile>Client</TargetFrameworkProfile>
+    <TargetFrameworkProfile>
+    </TargetFrameworkProfile>
     <DBL_qWarnLevel>3 - Don't display warnings levels higher than 3</DBL_qWarnLevel>
     <DBL_qWarn>True</DBL_qWarn>
     <DBLCmdOptions> -W3 -qstack</DBLCmdOptions>
