@@ -1,3 +1,4 @@
+# Introduction to Sonata
 
 Sonata is an application shell designed to allow Synergy .NET developers to deploy their WPF applications to users in a consistent and consistent way.
 
