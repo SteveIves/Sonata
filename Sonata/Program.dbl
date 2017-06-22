@@ -41,6 +41,7 @@
 ;;*****************************************************************************
 
 import System
+import Sonata.View
 
 namespace Sonata
 
